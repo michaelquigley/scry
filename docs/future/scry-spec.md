@@ -2,7 +2,7 @@
 
 *watches everything, listens on nothing*
 
-Status: spec, pre-work-order. Born 2026-07-23 in a design session; awaiting planning-agent translation once the repo has code to ground against.
+Status: spec, in planning. Born 2026-07-23 in a design session; work order drafted 2026-07-24 ([scry-work-order.md](scry-work-order.md)), which records the planning decisions that amended this document — most visibly the deferral of the `ziti` strategy out of v1.
 
 ## The Problem
 
@@ -34,15 +34,15 @@ Passive expectations are expressed as **period + grace** — "every 24h, grace 2
 
 ### States and Transitions
 
-Three states: **ok**, **late**, **failed**. Passive checks pass through *late* when the window expires and harden to *failed* after a further multiple of grace; active checks transition to *failed* only after N consecutive failed probes (configurable, default 3), so a single flaky dial pages nobody.
+Three states: **ok**, **late**, **failed**. Passive checks turn *late* when the window expires — the last report older than period + grace — and harden to *failed* after a further M grace-widths of silence (default 3, configurable): the 24h/2h job is late at 26 hours and failed at 32. Active checks pass through *late* as well: the first failed probe marks the check late, and the Nth consecutive failure (default 3, configurable) confirms *failed*, so a single flaky dial pages nobody and the page never shows green over a check that is mid-failure. A passive check that has never reported measures its window from the moment scry first learned it existed — registration is the baseline, so a check whose curl line never got installed announces itself one window later.
 
-Notifications fire on state *transitions* only, and recovery transitions notify too. A thing that is broken is announced once when it breaks and once when it heals. No repeats, no digests, no escalation ladders — those are deferred, and most of them deliberately forever.
+Notifications fire on state *transitions* only, and announcements are paired: entering *failed* always notifies; entering *late* notifies for passive checks (the window blew — that is real information) and is silent for active checks (suspicion under damping, visible on the page only); and a recovery to *ok* notifies exactly when the trouble it clears was announced. A thing that is broken is announced once when it breaks and once when it heals. Every announced transition fans out to every configured notifier — per-check routing is deferred until a real need appears. No repeats, no digests, no escalation ladders — those are deferred, and most of them deliberately forever.
 
 ## The Contracts
 
 The core engine owns the state machine — per-check state, transition detection, flap damping — and nothing else. Everything at the edges registers against a contract:
 
-- **`CheckStrategy`** — evaluate and return a result. The engine iterates checks; checks own their strategy; the engine never learns what a strategy does inside. V1 ships four: `tcp`, `http`, `ziti`, `passive`.
+- **`CheckStrategy`** — evaluate and return a result. The engine iterates checks; checks own their strategy; the engine never learns what a strategy does inside. V1 ships three: `tcp`, `http`, `passive`. The `ziti` strategy is deferred to the agent follow-on (see Deferred), which brings the overlay dependency into the process for both at once.
 - **`Notifier`** — receive a state transition, deliver it somewhere. V1 ships two: a Mattermost webhook and SMTP. Notifier failures log and retry; they never block the engine.
 - **The ingest listener** — not a strategy at all, but a transport surface. It receives reports over HTTP and stamps last-seen (and last-result) onto the corresponding passive check. The status model never learns about HTTP, tokens, or zrok; a different ingest transport can be added beside it later without touching the model.
 
@@ -60,7 +60,7 @@ flowchart LR
     end
     cron["cron jobs\n(curl on exit)"] --> ingest
     engine -->|"tcp / http probes"| svc["services"]
-    engine -->|"ziti dial"| dark["dark services\n(ziti fabric)"]
+    engine -->|"ziti dial\n(follow-on)"| dark["dark services\n(ziti fabric)"]
     engine -->|"agent protocol\n(zrok private share)"| agent["scry agents\n(follow-on)"]
     reg --> engine
     ingest --> engine
@@ -71,11 +71,13 @@ flowchart LR
 
 ## Ingest: Reports over zrok
 
-Passive reports travel as plain HTTPS through a zrok share fronting the daemon's ingest listener, authenticated with per-check bearer tokens. The cron migration is a one-line change per crontab — replace the `| mail` tail with a `curl` on exit:
+Passive reports travel as plain HTTPS through a zrok share fronting the daemon's ingest listener, authenticated with per-check bearer tokens. The share lives *outside the process* — the daemon binds plain HTTP on localhost and a reserved share fronts it, which is the strongest form of the transport seam: no overlay SDK in the daemon, an ingest surface testable with curl on the box. The cron migration is a one-line change per crontab — replace the `| mail` tail with a `curl` on exit:
 
 ```
 curl -fsS -m10 https://<ingest>/report/<check-id> -H "authorization: bearer <token>"
 ```
+
+A bare request means *ok*. A report that has something to say sends the same result shape the agent protocol uses — `{"status": "failed", "detail": "snapshot exited 2"}` — so a job can announce its own failure promptly instead of waiting out the window; that step up from one line is opt-in per job, not the migration baseline.
 
 Works from any host that has curl, which is all of them. The reports are heartbeats, not secrets; per-check tokens bound the damage of a leak to one check's ability to lie about itself. A ziti-native ingest listener remains a clean later addition precisely because the model/transport seam keeps wire knowledge out of the model.
 
@@ -137,7 +139,7 @@ The API is also what an eventual MCP tool for the gang would read — that surfa
 
 **A cron job goes silent.** The nightly NAS snapshot job wedges and stops running. No email would ever have announced this. Twenty-six hours after its last report — period 24h, grace 2h — its check turns *late*; a Mattermost message and an email say so. Nothing else happens until it transitions again: to *failed* as the silence hardens, or back to *ok* the moment a report lands, which is announced as a recovery.
 
-**A dark service stops answering.** A service that exists on no network — reachable only as a ziti service — hangs. scry's `ziti` strategy dials it by name on its interval; the first failed dial is damped, the third transitions the check to *failed* and pages. No off-the-shelf monitor could have run this check at all, because the service has no address to probe.
+**A dark service stops answering** *(follow-on — lands with the `ziti` strategy)*. A service that exists on no network — reachable only as a ziti service — hangs. scry's `ziti` strategy dials it by name on its interval; the first failed dial is damped, the third transitions the check to *failed* and pages. No off-the-shelf monitor could have run this check at all, because the service has no address to probe.
 
 **Reef notices its own trouble.** Reef's embedded agent answers its check list on scry's next ask; the `integrity-sweep` child comes back `failed` with detail. The agent rolls up as failed, the notification carries the child's name and detail, and the status page shows exactly which of reef's internals went wrong — while scry itself knows nothing about what an integrity sweep is.
 
@@ -155,7 +157,9 @@ Recorded calls, per the census discipline — the decisions review checks diffs 
 
 ## Deferred (and Why)
 
-**The `agent` strategy and the reference agent binary.** First follow-on, not v1 — it is the only piece requiring a second deployable, and landing it separately is the honest test of whether the strategy contract is real: it must slot in without core changes. The protocol section above is written now precisely so that follow-on implements a settled spec rather than negotiating one.
+**The `agent` strategy and the reference agent binary.** First follow-on, not v1 — it is the only piece requiring a second deployable, and landing it separately is the honest test of whether the strategy contract is real: it must slot in without core changes. The test's terms, sharpened in planning: *core* means the engine and the `CheckStrategy`/`Notifier` contracts, which must not move; the agent is the check and its children are structured detail on the agent's single result, not first-class checks — so the API and dashboard grow additively while the state machine stays untouched. The protocol section above is written now precisely so that follow-on implements a settled spec rather than negotiating one.
+
+**The `ziti` strategy.** Deferred out of v1 in planning (2026-07-24). It was the only v1 piece that would pull the openziti SDK into the daemon, and the agent follow-on brings overlay dialing in-process anyway — one dependency event instead of two. It lands alongside the agent strategy; the foreseen shape is a bare-dial strategy plus a ziti dialer option on `http`, keeping transport orthogonal to judgment.
 
 **The embedding package.** Follows the reference agent; reef is its first consumer.
 
