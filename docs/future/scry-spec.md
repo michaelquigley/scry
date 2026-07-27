@@ -2,7 +2,7 @@
 
 *watches everything, listens on nothing*
 
-Status: spec, in planning. Born 2026-07-23 in a design session; work order drafted 2026-07-24 ([scry-work-order.md](scry-work-order.md)), which records the planning decisions that amended this document — most visibly the deferral of the `ziti` strategy out of v1.
+Status: converged, awaiting implementation. Born 2026-07-23 in a design session; work order drafted 2026-07-24 ([scry-work-order.md](scry-work-order.md)), which records the planning decisions that amended this document — most visibly the deferral of the `ziti` strategy out of v1. Spec and work order passed mercurius review together: six rounds, `ready_to_build`, 2026-07-27.
 
 ## The Problem
 
@@ -20,13 +20,13 @@ A single Go daemon running on an HQ host. It holds a hand-curated registry of ch
 
 Expected scale for the first year: roughly 20–30 cron-style jobs, ~20 probed services, and 5–10 agent-answering systems. Call it fifty to sixty entities. Everything about the design is calibrated to that scale — the model lives in memory, rebuilt from configuration at boot, with a small JSON state file preserving last-seen timestamps and current states so a daemon restart neither re-fires alerts nor forgets that something was already late. There is no database.
 
-The design input is HQ, only. The zrok-native agent story (below) gives scry a plausible open-source life and a plausible NetFoundry-relevant narrative, but those are earned consequences of building the HQ tool well, not requirements to design against. V1 ships when it monitors HQ's fifty entities.
+The design input is HQ, only. The zrok-native agent story (below) gives scry a plausible open-source life and a plausible NetFoundry-relevant narrative, but those are earned consequences of building the HQ tool well, not requirements to design against. V1 ships when it monitors HQ's estate — everything but the agent-answering share, which lands with the agent follow-on.
 
 ## The Check Model
 
 **Everything is a check; strategies are active or passive.**
 
-An *active* strategy probes on an interval — dial a TCP port, request an HTTP endpoint and judge the status, dial a ziti service by name. An active check that cannot complete its probe has not errored; it has produced a failing result. A *passive* strategy never probes — it evaluates an expectation window against the last time a report arrived. Both return the same result type into the same engine.
+An *active* strategy probes on an interval — dial a TCP port, request an HTTP endpoint and judge the status, dial a ziti service by name. An active check that cannot complete its probe has not errored; it has produced a failing result. A *passive* strategy never probes — its results are the reports that arrive, and the engine judges an expectation window against the last one heard. Both polarities feed the same result type into the same engine; the window itself produces state, never results.
 
 This dissolves the polarity split at the architectural level. Cron jobs, service probes, and self-reporting systems are configuration differences, not structural ones.
 
@@ -42,7 +42,7 @@ Notifications fire on state *transitions* only, and announcements are paired: en
 
 The core engine owns the state machine — per-check state, transition detection, flap damping — and nothing else. Everything at the edges registers against a contract:
 
-- **`CheckStrategy`** — evaluate and return a result. The engine iterates checks; checks own their strategy; the engine never learns what a strategy does inside. V1 ships three: `tcp`, `http`, `passive`. The `ziti` strategy is deferred to the agent follow-on (see Deferred), which brings the overlay dependency into the process for both at once.
+- **`CheckStrategy`** — evaluate and return a result: the active-probe contract. The engine iterates checks; checks own their strategy; the engine never learns what a probe does inside. V1 ships two active strategies, `tcp` and `http`; the `ziti` strategy is deferred to the agent follow-on (see Deferred), which brings the overlay dependency into the process for both at once. *Passive* remains a strategy in the model's taxonomy but implements no probe interface — a passive check's results are its ingest reports, carrying the same result shape into the same engine, and the window arithmetic that judges the silence between them is model logic owned by the engine.
 - **`Notifier`** — receive a state transition, deliver it somewhere. V1 ships two: a Mattermost webhook and SMTP. Notifier failures log and retry; they never block the engine.
 - **The ingest listener** — not a strategy at all, but a transport surface. It receives reports over HTTP and stamps last-seen (and last-result) onto the corresponding passive check. The status model never learns about HTTP, tokens, or zrok; a different ingest transport can be added beside it later without touching the model.
 
@@ -64,8 +64,8 @@ flowchart LR
     engine -->|"agent protocol\n(zrok private share)"| agent["scry agents\n(follow-on)"]
     reg --> engine
     ingest --> engine
-    engine --> page
     engine --> api
+    api --> page
     engine --> notif
 ```
 
@@ -141,7 +141,7 @@ The API is also what an eventual MCP tool for the gang would read — that surfa
 
 **A dark service stops answering** *(follow-on — lands with the `ziti` strategy)*. A service that exists on no network — reachable only as a ziti service — hangs. scry's `ziti` strategy dials it by name on its interval; the first failed dial is damped, the third transitions the check to *failed* and pages. No off-the-shelf monitor could have run this check at all, because the service has no address to probe.
 
-**Reef notices its own trouble.** Reef's embedded agent answers its check list on scry's next ask; the `integrity-sweep` child comes back `failed` with detail. The agent rolls up as failed, the notification carries the child's name and detail, and the status page shows exactly which of reef's internals went wrong — while scry itself knows nothing about what an integrity sweep is.
+**Reef notices its own trouble** *(follow-on — lands with the agent strategy and embedding package)*. Reef's embedded agent answers its check list on scry's next ask; the `integrity-sweep` child comes back `failed` with detail. The agent rolls up as failed, the notification carries the child's name and detail, and the status page shows exactly which of reef's internals went wrong — while scry itself knows nothing about what an integrity sweep is.
 
 **The daemon restarts.** A kernel update reboots the HQ host. scry comes back, reloads config, reads the JSON state file, and resumes: checks that were *ok* are still ok with their history intact, the thing that was already *failed* is still failed and does not page again. No re-fired alerts, no amnesia.
 
@@ -152,12 +152,12 @@ Recorded calls, per the census discipline — the decisions review checks diffs 
 - **model / transport** — *separate, unconditional.* Ingest, tokens, zrok, and the agent wire are transport; the status model never sees them. Revisit: never.
 - **model / render** — *separate.* The model is declared render-free; the JSON status API is the single walk, and all rendering — the dashboard, the eventual MCP surface — consumes the API. Revisit: never.
 - **contract circumvention** — the `CheckStrategy` and `Notifier` interfaces and the agent protocol's answer surface are load-bearing facades; nothing reaches around them. The no-exec rule on the protocol binds every implementer, not just the reference agent. Revisit: never — an exec surface is the one change that voids the design.
-- **error by tier** — config failures die at boot; strategy failures are *results*, not errors; wrap-log-continue lives in the scheduler loop; notifier failures log and retry without blocking the engine. Revisit: if a failure class appears that fits none of the tiers.
+- **error by tier** — config failures die at boot, and so does a state file that exists but does not parse whole (a missing one is simply first boot); a failed state *save* is fatal at runtime — scry does not run with state it cannot persist; strategy failures are *results*, not errors; wrap-log-continue lives in the scheduler loop; notifier failures log and retry without blocking the engine. Revisit: if a failure class appears that fits none of the tiers.
 - **build first, narrate second** — the open-source and NetFoundry stories about the zrok agent model get told after scry has quietly watched HQ for a while. The narrative is earned by the running system. Revisit: when it has run for a month.
 
 ## Deferred (and Why)
 
-**The `agent` strategy and the reference agent binary.** First follow-on, not v1 — it is the only piece requiring a second deployable, and landing it separately is the honest test of whether the strategy contract is real: it must slot in without core changes. The test's terms, sharpened in planning: *core* means the engine and the `CheckStrategy`/`Notifier` contracts, which must not move; the agent is the check and its children are structured detail on the agent's single result, not first-class checks — so the API and dashboard grow additively while the state machine stays untouched. The protocol section above is written now precisely so that follow-on implements a settled spec rather than negotiating one.
+**The `agent` strategy and the reference agent binary.** First follow-on, not v1 — it is the only piece requiring a second deployable, and landing it separately is the honest test of whether the strategy contract is real: it must slot in without core changes. The test's terms, sharpened in planning: *frozen* means the transition logic and the `CheckStrategy`/`Notifier` method signatures; additive fields on the result type, the persisted record, and the API are the intended extension point, not a violation — the engine stores and forwards results opaquely, so structure flows strategy → state → API without the state machine ever looking inside. The agent is the check and its children are structured detail on the agent's single result, not first-class checks. The protocol section above is written now precisely so that follow-on implements a settled spec rather than negotiating one.
 
 **The `ziti` strategy.** Deferred out of v1 in planning (2026-07-24). It was the only v1 piece that would pull the openziti SDK into the daemon, and the agent follow-on brings overlay dialing in-process anyway — one dependency event instead of two. It lands alongside the agent strategy; the foreseen shape is a bare-dial strategy plus a ziti dialer option on `http`, keeping transport orthogonal to judgment.
 
