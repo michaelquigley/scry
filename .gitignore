@@ -10,4 +10,6 @@ mercurius.yaml
 *.db
 CODEX-*.md
 node_modules
-ui/flo/dist
+/scry
+ui/dist/
+ui/node_modules/

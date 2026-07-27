@@ -1,0 +1,38 @@
+status_listen: "0.0.0.0:8420"
+ingest_listen: "127.0.0.1:8421"
+state_file: "/var/lib/scry/state.json"
+
+defaults:
+  interval: 60s
+  timeout: 10s
+  fail_after: 3
+  harden_after: 3
+
+notifiers:
+  mattermost:
+    webhook_url: "https://mattermost.example.com/hooks/replace-me"
+  smtp:
+    host: "smtp.example.com"
+    port: 25
+    from: "scry@example.com"
+    to:
+      - "operator@example.com"
+
+checks:
+  - id: nas-snapshot
+    name: "NAS nightly snapshot"
+    passive:
+      period: 24h
+      grace: 2h
+      token: "replace-with-a-unique-token"
+  - id: gitea
+    name: "gitea web"
+    http:
+      url: "https://git.example.com/"
+      expect: [200]
+      insecure: false
+  - id: postgres
+    name: "postgres"
+    tcp:
+      address: "10.0.0.5:5432"
+    interval: 30s
