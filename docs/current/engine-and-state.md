@@ -2,14 +2,14 @@
 
 Scry's transport-free core contains the runtime model, exact transition rules, paired notification decisions, one serialized state owner, and the durable JSON state file. Probe implementations live outside this core and submit opaque results through the scheduler; no HTTP, notifier, or rendering type participates in model decisions.
 
-The stage-3 binary is a long-running daemon. It reconciles state before startup succeeds, runs the engine and scheduler together, and stops both on SIGINT or SIGTERM.
+The daemon reconciles state before startup succeeds, then runs the engine, scheduler, and isolated ingest listener together. SIGINT, SIGTERM, or a fatal component error cancels all three and waits for their shutdown.
 
 ## Model
 
 Three check kinds enter one state machine:
 
 - `http` and `tcp` are active checks. Their strategies produce `Result{Status, Detail}` values through the scheduler.
-- `passive` checks receive the same result shape from reports in stage 4. The silence between reports is judged by pure window arithmetic, not by a probe interface.
+- `passive` checks receive the same result shape from authenticated ingest reports. The silence between reports is judged by pure window arithmetic, not by a probe interface.
 
 Every new check receives a complete baseline at the injected current time: state `ok`, `since` set to registration, no `lastTransition`, no `lastResult`, and zero consecutive failures. Passive checks additionally receive `lastSeen` at registration. Registration is not a transition.
 

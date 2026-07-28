@@ -63,4 +63,9 @@ func TestConfiguredChecksPreserveRegistryOrderAndRules(t *testing.T) {
 	if active[0].Strategy == nil || active[1].Strategy == nil {
 		t.Fatalf("active strategies: %+v", active)
 	}
+
+	passive := configuredPassiveChecks(cfg)
+	if len(passive) != 1 || passive[0].ID != "job" || passive[0].Token != "token" {
+		t.Fatalf("passive registry: %+v", passive)
+	}
 }

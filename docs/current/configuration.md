@@ -1,6 +1,6 @@
 # Configuration
 
-Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks until SIGINT or SIGTERM. Listener addresses and passive tokens are validated now but remain dormant until the ingest and status listener stages land.
+Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks and the passive-report ingest listener until SIGINT or SIGTERM. The status listener address is validated now but remains dormant until the status API and dashboard stage lands.
 
 ## Cascade
 
@@ -39,6 +39,8 @@ Each check has a lowercase slug id, a display name, and exactly one strategy blo
 Active checks inherit `interval`, `timeout`, and `fail_after`; passive checks inherit `harden_after`. Per-check fields override the global defaults. An omitted override inherits, while an explicitly authored zero or out-of-range value is invalid.
 
 The ingest listener is constrained to a loopback address because external exposure belongs to the reserved zrok share in the deployment design. Listener ports and TCP target ports must be numeric and lie between 1 and 65535.
+
+Passive tokens authenticate `GET|POST /report/<check-id>` on that isolated listener. Active checks have no ingest endpoint.
 
 ## Command surface
 

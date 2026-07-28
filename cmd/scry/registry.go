@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/michaelquigley/scry/internal/config"
 	"github.com/michaelquigley/scry/internal/engine"
+	"github.com/michaelquigley/scry/internal/ingest"
 	"github.com/michaelquigley/scry/internal/model"
 	"github.com/michaelquigley/scry/internal/strategy"
 )
@@ -25,6 +26,22 @@ func configuredChecks(cfg *config.Config) []model.Check {
 			check.FailAfter = configured.EffectiveFailAfter(cfg.Defaults)
 		}
 		checks[i] = check
+	}
+	return checks
+}
+
+// configuredPassiveChecks builds the ingest authentication registry.
+func configuredPassiveChecks(cfg *config.Config) []ingest.Check {
+	checks := make([]ingest.Check, 0, len(cfg.Checks))
+	for i := range cfg.Checks {
+		configured := &cfg.Checks[i]
+		if configured.Passive == nil {
+			continue
+		}
+		checks = append(checks, ingest.Check{
+			ID:    configured.ID,
+			Token: configured.Passive.Token,
+		})
 	}
 	return checks
 }

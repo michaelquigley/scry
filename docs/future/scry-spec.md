@@ -79,7 +79,7 @@ curl -fsS -m10 https://<ingest>/report/<check-id> -H "authorization: bearer <tok
 
 A bare request means *ok*. A report that has something to say sends the same result shape the agent protocol uses — `{"status": "failed", "detail": "snapshot exited 2"}` — so a job can announce its own failure promptly instead of waiting out the window; that step up from one line is opt-in per job, not the migration baseline.
 
-Works from any host that has curl, which is all of them. The reports are heartbeats, not secrets; per-check tokens bound the damage of a leak to one check's ability to lie about itself. A ziti-native ingest listener remains a clean later addition precisely because the model/transport seam keeps wire knowledge out of the model.
+Works from any host that has curl, which is all of them. The reports are heartbeats, not secrets; per-check tokens bound the damage of a leak to one check's ability to lie about itself. The listener also refuses to disclose which ids exist: an unknown or non-passive id takes the same dummy-hash authentication path and returns the same unauthorized response as a bad token. A ziti-native ingest listener remains a clean later addition precisely because the model/transport seam keeps wire knowledge out of the model.
 
 ## The scry Agent Protocol
 

@@ -14,6 +14,7 @@ import (
 	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/scry/internal/config"
 	"github.com/michaelquigley/scry/internal/engine"
+	"github.com/michaelquigley/scry/internal/ingest"
 	"github.com/michaelquigley/scry/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -72,43 +73,63 @@ func runDaemon(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize scheduler: %w", err)
 	}
+	ingestHandler, err := ingest.NewHandler(configuredPassiveChecks(cfg), stateEngine)
+	if err != nil {
+		return fmt.Errorf("initialize ingest handler: %w", err)
+	}
+	ingestServer, err := ingest.NewServer(cfg.IngestListen, ingestHandler)
+	if err != nil {
+		return fmt.Errorf("initialize ingest listener: %w", err)
+	}
 
-	dl.Infof("daemon started; checks='%d' active='%d'", len(cfg.Checks), len(active))
-	if err := runComponents(ctx, stateEngine, scheduler); err != nil {
+	dl.Infof(
+		"daemon started; checks='%d' active='%d' ingest='%s'",
+		len(cfg.Checks),
+		len(active),
+		ingestServer.Addr().String(),
+	)
+	if err := runComponents(
+		ctx,
+		component{name: "engine", run: stateEngine.Run},
+		component{name: "scheduler", run: scheduler.Run},
+		component{name: "ingest listener", run: ingestServer.Run},
+	); err != nil {
 		return err
 	}
 	dl.Infof("daemon stopped")
 	return nil
 }
 
-type componentResult struct {
+type component struct {
 	name string
-	err  error
+	run  func(context.Context) error
 }
 
-func runComponents(ctx context.Context, stateEngine *engine.Engine, scheduler *engine.Scheduler) error {
+type componentResult struct {
+	index int
+	err   error
+}
+
+func runComponents(ctx context.Context, components ...component) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	results := make(chan componentResult, 2)
-	go func() {
-		results <- componentResult{name: "engine", err: stateEngine.Run(runCtx)}
-	}()
-	go func() {
-		results <- componentResult{name: "scheduler", err: scheduler.Run(runCtx)}
-	}()
+	results := make(chan componentResult, len(components))
+	for i, current := range components {
+		go func() {
+			results <- componentResult{index: i, err: current.run(runCtx)}
+		}()
+	}
 
-	completed := make([]componentResult, 0, 2)
-	for len(completed) < 2 {
+	errorsByComponent := make([]error, len(components))
+	for range components {
 		result := <-results
-		completed = append(completed, result)
+		errorsByComponent[result.index] = result.err
 		cancel()
 	}
-	for _, name := range []string{"engine", "scheduler"} {
-		for _, result := range completed {
-			if result.name == name && result.err != nil {
-				return fmt.Errorf("%s stopped: %w", name, result.err)
-			}
+	for i, err := range errorsByComponent {
+		if err != nil {
+			return fmt.Errorf("%s stopped: %w", components[i].name, err)
 		}
 	}
 	return nil
