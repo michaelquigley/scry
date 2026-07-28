@@ -1,6 +1,6 @@
 # Configuration
 
-Stage 1 establishes scry's executable and configuration boundary. The binary currently validates the complete v1 configuration and exits; the engine and long-running daemon behavior land in the later stages of the active work order.
+Stage 1 established scry's executable and configuration boundary. With stage 2 landed, the binary validates the complete v1 configuration, reconciles and persists the state file, then exits; active scheduling and the long-running daemon lifecycle land in stage 3.
 
 ## Cascade
 

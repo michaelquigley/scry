@@ -5,9 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/scry/internal/config"
+	"github.com/michaelquigley/scry/internal/engine"
+	"github.com/michaelquigley/scry/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +49,12 @@ func run(_ *cobra.Command, _ []string) {
 		cfg.StateFile,
 		len(cfg.Checks),
 	)
-	dl.Infof("configuration loaded")
+
+	stateStore := state.NewStore(cfg.StateFile)
+	if _, err := engine.New(configuredChecks(cfg), stateStore, time.Now); err != nil {
+		dl.Fatalf("initializing engine: %v", err)
+	}
+	dl.Infof("state reconciled; checks='%d'", len(cfg.Checks))
 }
 
 func main() {
