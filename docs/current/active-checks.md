@@ -1,0 +1,39 @@
+# Active Checks
+
+Scry runs each configured HTTP or TCP check from its own scheduler goroutine. Every check receives one random initial offset in the half-open range `[0, interval)`, then probes on a fixed ticker at its configured interval. The spread prevents a large registry from firing as one startup volley.
+
+Each probe runs beneath a per-check context deadline. The strategy returns a `Result` rather than an operational error: inability to connect, request, or complete by the deadline is a failed health result. If daemon cancellation interrupts an in-flight probe, the scheduler discards that result because shutdown says nothing about the target's health. A probe deadline reached while the daemon remains live is delivered as a failed result.
+
+All active workers deliver `(check id, result)` through one scheduler result channel. The scheduler submits those results to the engine's serialized command loop. It also sends a bare passive-sweep command every 15 seconds and flushes dirty, non-transitioning active state every 60 seconds. Passive window state is derived atomically inside the engine rather than in the scheduler.
+
+## TCP
+
+A TCP check performs a context-bound dial to the configured host and numeric port. An accepted connection is immediately closed and produces `ok`; a dial failure produces `failed` with the dial error as detail.
+
+```yaml
+checks:
+  - id: ssh
+    name: studio host ssh
+    tcp:
+      address: "192.0.2.10:22"
+    interval: 30s
+    timeout: 3s
+```
+
+## HTTP
+
+An HTTP check performs a GET and judges the first response without following redirects. With no `expect` list, every 2xx response is `ok`. When `expect` is present, only the listed status codes are `ok`; this can deliberately accept a redirect or error status. Any other response produces `failed` with its status code in the detail.
+
+TLS certificates are verified by default. `insecure: true` is an explicit per-check escape hatch for self-signed estate endpoints.
+
+```yaml
+checks:
+  - id: homepage
+    name: homepage
+    http:
+      url: "https://example.test/health"
+      expect: [200, 204]
+      insecure: false
+    interval: 60s
+    timeout: 10s
+```

@@ -1,14 +1,14 @@
 # Engine and State
 
-Stage 2 is scry's transport-free core: the runtime model, exact transition rules, paired notification decisions, one serialized state owner, and the durable JSON state file. No probe, HTTP, notifier, or rendering package participates in these decisions.
+Scry's transport-free core contains the runtime model, exact transition rules, paired notification decisions, one serialized state owner, and the durable JSON state file. Probe implementations live outside this core and submit opaque results through the scheduler; no HTTP, notifier, or rendering type participates in model decisions.
 
-Until stage 3 supplies scheduling and the long-running lifecycle, the binary performs boot reconciliation and exits. The core itself is complete and exercised through its command surface and fake-clock tests.
+The stage-3 binary is a long-running daemon. It reconciles state before startup succeeds, runs the engine and scheduler together, and stops both on SIGINT or SIGTERM.
 
 ## Model
 
 Three check kinds enter one state machine:
 
-- `http` and `tcp` are active checks. Their strategies will produce `Result{Status, Detail}` values in stage 3.
+- `http` and `tcp` are active checks. Their strategies produce `Result{Status, Detail}` values through the scheduler.
 - `passive` checks receive the same result shape from reports in stage 4. The silence between reports is judged by pure window arithmetic, not by a probe interface.
 
 Every new check receives a complete baseline at the injected current time: state `ok`, `since` set to registration, no `lastTransition`, no `lastResult`, and zero consecutive failures. Passive checks additionally receive `lastSeen` at registration. Registration is not a transition.
@@ -64,7 +64,7 @@ The state file is a versioned JSON object:
 
 Optional history fields are omitted until they exist: active checks have no `last_seen`; a fresh check has no last result or transition. The file binds strictly through `df/dd`: malformed or trailing JSON, duplicate or unknown keys, unsupported versions, invalid enum values, and incomplete records all fail the load. A missing file is first boot.
 
-Writes create a mode-0600 temporary file beside the destination, sync it, rename it over the destination, and sync the directory. A transition and every passive report save immediately. Non-transitioning active results mark state dirty; explicit flush, shutdown, and the stage-3 periodic flush persist them. Any save failure is fatal.
+Writes create a mode-0600 temporary file beside the destination, sync it, rename it over the destination, and sync the directory. A transition and every passive report save immediately. Non-transitioning active results mark state dirty; explicit flush, shutdown, and the scheduler's 60-second periodic flush persist them. Any save failure is fatal.
 
 ## Boot Reconciliation
 

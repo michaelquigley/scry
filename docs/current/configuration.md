@@ -1,6 +1,6 @@
 # Configuration
 
-Stage 1 established scry's executable and configuration boundary. With stage 2 landed, the binary validates the complete v1 configuration, reconciles and persists the state file, then exits; active scheduling and the long-running daemon lifecycle land in stage 3.
+Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks until SIGINT or SIGTERM. Listener addresses and passive tokens are validated now but remain dormant until the ingest and status listener stages land.
 
 ## Cascade
 

@@ -2,7 +2,7 @@
 
 scry is a deliberately small status daemon for a hand-curated estate. It combines active TCP and HTTP probes with passive job check-ins, keeps transition state across restarts, renders one status page, and announces meaningful changes through Mattermost and SMTP.
 
-Implementation follows the staged [work order](docs/future/scry-work-order.md). Stages 1 and 2 currently provide the repository skeleton, validated configuration, transition engine, and durable state file. Active scheduling and runtime listeners land in later human-gated stages. The as-built core is described in [docs/current/engine-and-state.md](docs/current/engine-and-state.md).
+Implementation follows the staged [work order](docs/future/scry-work-order.md). Stages 1 through 3 currently provide the repository skeleton, validated configuration, transition engine, durable state file, TCP and HTTP strategies, and the long-running scheduler. Runtime listeners land in later human-gated stages. The built behavior is described in [docs/current](docs/current/).
 
 ## Build
 
