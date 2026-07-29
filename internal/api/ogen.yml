@@ -1,0 +1,10 @@
+# ogen generator configuration for the scry contract.
+#
+# the OpenTelemetry integration is disabled: it instruments every request with a
+# wall-clock stopwatch inside internal/, which scry's injected-clock rule does
+# not allow, and it carries metrics machinery into a project whose specification
+# defers metrics permanently.
+generator:
+  features:
+    disable:
+      - "ogen/otel"

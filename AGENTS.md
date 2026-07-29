@@ -30,7 +30,7 @@ make build
 
 `make build` creates the React frontend before installing the Go binary, so the embedded `ui/dist` tree always exists. `go build -tags no_ui ./cmd/scry` is the headless seam.
 
-The API is contract-first once stage 6 lands: edit `internal/api/specs/scry.yml`, run `make generate`, and never hand-edit generated ogen or TypeScript schema files.
+The API is contract-first: edit `internal/api/specs/scry.yml`, run `make generate`, and never hand-edit generated ogen or TypeScript schema files.
 
 ## Project memory
 

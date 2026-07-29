@@ -16,6 +16,7 @@ import (
 	"github.com/michaelquigley/scry/internal/engine"
 	"github.com/michaelquigley/scry/internal/ingest"
 	"github.com/michaelquigley/scry/internal/notify"
+	"github.com/michaelquigley/scry/internal/server"
 	"github.com/michaelquigley/scry/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -90,12 +91,21 @@ func runDaemon(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize ingest listener: %w", err)
 	}
+	statusHandler, err := server.NewHandler(stateEngine, time.Now)
+	if err != nil {
+		return fmt.Errorf("initialize status handler: %w", err)
+	}
+	statusServer, err := server.NewServer(cfg.StatusListen, statusHandler)
+	if err != nil {
+		return fmt.Errorf("initialize status listener: %w", err)
+	}
 
 	dl.Infof(
-		"daemon started; checks='%d' active='%d' notifiers='%d' ingest='%s'",
+		"daemon started; checks='%d' active='%d' notifiers='%d' status='%s' ingest='%s'",
 		len(cfg.Checks),
 		len(active),
 		len(destinations),
+		statusServer.Addr().String(),
 		ingestServer.Addr().String(),
 	)
 	if err := runComponents(
@@ -104,6 +114,7 @@ func runDaemon(ctx context.Context, cfg *config.Config) error {
 		component{name: "scheduler", run: scheduler.Run},
 		component{name: "notifier dispatcher", run: dispatcher.Run},
 		component{name: "ingest listener", run: ingestServer.Run},
+		component{name: "status listener", run: statusServer.Run},
 	); err != nil {
 		return err
 	}

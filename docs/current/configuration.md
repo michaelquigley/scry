@@ -1,6 +1,6 @@
 # Configuration
 
-Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks, the passive-report ingest listener, and configured notification workers until SIGINT or SIGTERM. The status listener address is validated now but remains dormant until the status API and dashboard stage lands.
+Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks, the passive-report ingest listener, configured notification workers, and the status listener until SIGINT or SIGTERM.
 
 ## Cascade
 

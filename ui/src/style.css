@@ -2,6 +2,14 @@
   color: #d7d7dc;
   background: #111116;
   font-family: system-ui, sans-serif;
+  font-size: 15px;
+
+  --ok: #4ea87a;
+  --late: #cf9b45;
+  --failed: #cf5a5a;
+  --muted: #86868f;
+  --line: #26262f;
+  --panel: #191920;
 }
 
 body {
@@ -9,16 +17,143 @@ body {
 }
 
 main {
-  max-width: 48rem;
-  margin: 15vh auto;
-  padding: 2rem;
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 h1 {
-  margin: 0 0 0.5rem;
-  font-size: 2rem;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-p {
-  color: #9999a4;
+.generated,
+.placeholder {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.stale {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--late);
+  border-radius: 6px;
+  color: var(--late);
+  font-size: 0.85rem;
+}
+
+.rollup {
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.rollup-ok {
+  border-left-color: var(--ok);
+  color: var(--ok);
+}
+
+.rollup-late {
+  border-left-color: var(--late);
+  color: var(--late);
+}
+
+.rollup-failed {
+  border-left-color: var(--failed);
+  color: var(--failed);
+}
+
+.rollup-empty {
+  border-left-color: var(--muted);
+  color: var(--muted);
+}
+
+.rollup-detail {
+  margin-left: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.checks {
+  width: 100%;
+  margin-top: 1.5rem;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.checks th {
+  padding: 0 0.75rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.checks td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.chip {
+  display: inline-block;
+  min-width: 4rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.chip-ok {
+  color: var(--ok);
+}
+
+.chip-late {
+  color: var(--late);
+}
+
+.chip-failed {
+  color: var(--failed);
+}
+
+.check-name {
+  font-weight: 500;
+}
+
+.check-id,
+.numeric,
+.detail {
+  color: var(--muted);
+}
+
+.check-id {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+}
+
+.numeric {
+  white-space: nowrap;
+}
+
+.detail {
+  overflow-wrap: anywhere;
 }

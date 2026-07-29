@@ -1,0 +1,102 @@
+openapi: "3.0.3"
+
+info:
+  title: scry
+  version: 1.0.0
+  description: >-
+    the single walk of scry's status model. the dashboard and any future
+    consumer eat exactly this document; the model itself carries no rendering
+    behavior. evolution is additive only — consumers ignore unknown fields.
+
+# the status listener serves a LAN audience and is unauthenticated in v1; the
+# authenticated report surface lives on a separate loopback listener and is
+# deliberately absent from this contract.
+servers:
+  - url: /api
+
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      summary: the whole estate's current status
+      responses:
+        "200":
+          description: every registered check with its current state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/status"
+
+components:
+  schemas:
+    status:
+      type: object
+      description: one snapshot of the registry, stamped when it was rendered
+      required: [generated, rollup, checks]
+      properties:
+        generated:
+          type: string
+          format: date-time
+          description: when the daemon rendered this document
+        rollup:
+          $ref: "#/components/schemas/rollup"
+        checks:
+          type: array
+          description: every check in registry order; sorting is a render decision
+          items:
+            $ref: "#/components/schemas/check"
+
+    rollup:
+      type: object
+      description: how many checks occupy each state
+      required: [ok, late, failed]
+      properties:
+        ok:
+          type: integer
+        late:
+          type: integer
+        failed:
+          type: integer
+
+    check:
+      type: object
+      required: [id, name, kind, state, since, last_transition, last_seen, detail]
+      properties:
+        id:
+          type: string
+          description: the registry slug, also the report path segment
+        name:
+          type: string
+          description: the display name
+        kind:
+          $ref: "#/components/schemas/kind"
+        state:
+          $ref: "#/components/schemas/state"
+        since:
+          type: string
+          format: date-time
+          description: when the check entered its current state
+        last_transition:
+          type: string
+          format: date-time
+          nullable: true
+          description: null until the check's first real transition; registration is not one
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
+          description: the last passive report; null for active checks
+        detail:
+          type: string
+          nullable: true
+          description: detail from the last result or report; null until one arrives
+
+    kind:
+      type: string
+      description: how the check receives results
+      enum: [passive, http, tcp]
+
+    state:
+      type: string
+      description: the damped runtime verdict
+      enum: [ok, late, failed]

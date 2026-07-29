@@ -21,7 +21,7 @@ The first line is also the SMTP subject. A transition without last-result detail
 
 The engine saves a transition before enqueueing its notification. Enqueue copies the transition into one unbounded in-memory FIFO for each configured destination and returns without doing network work. One worker per notifier preserves that destination's order, while a stalled destination cannot hold up another destination or the engine.
 
-Each delivery attempt has a 30-second deadline. A failed message is attempted five times, with waits of 15 seconds, 1 minute, 3 minutes, and 6 minutes between attempts. After the fifth failure, Scry logs the drop and advances to the next queued transition. Queues are intentionally memory-only; undelivered messages do not survive a daemon restart, while the persisted state file and eventual status page remain authoritative.
+Each delivery attempt has a 30-second deadline. A failed message is attempted five times, with waits of 15 seconds, 1 minute, 3 minutes, and 6 minutes between attempts. After the fifth failure, Scry logs the drop and advances to the next queued transition. Queues are intentionally memory-only; undelivered messages do not survive a daemon restart, while the persisted state file and the status page remain authoritative.
 
 ## Mattermost
 

@@ -3,10 +3,12 @@
 
 GOBIN ?= $(shell go env GOPATH)/bin
 
-# generate the committed API contract once stage 6 supplies its OpenAPI source.
+# generate both sides of the committed API contract: the ogen server (Go) and
+# the dashboard's TypeScript client types.
 generate:
 	go generate ./...
-	@if [ -f internal/api/specs/scry.yml ]; then npm --prefix ui install && npm --prefix ui run gen:api; fi
+	npm --prefix ui install
+	npm --prefix ui run gen:api
 
 # build the embedded single-page UI into ui/dist.
 frontend:

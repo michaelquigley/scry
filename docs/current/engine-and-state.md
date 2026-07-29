@@ -37,7 +37,7 @@ Notification decisions are carried on transitions:
 
 ## Ownership and Clock
 
-One engine loop owns the mutable record map. Callers submit active results, passive reports, sweep ticks, and flush requests through commands; application, transition detection, and persistence happen serially. Readers use a separately published deep copy in registry order, so neither the eventual API nor another caller can mutate engine state.
+One engine loop owns the mutable record map. Callers submit active results, passive reports, sweep ticks, and flush requests through commands; application, transition detection, and persistence happen serially. Readers use a separately published deep copy in registry order, so neither the status API nor another caller can mutate engine state.
 
 When a transition carries `announce: true`, the engine persists the resulting state before appending a copied transition to the notification dispatcher. Silent transitions never enter the dispatcher. Enqueue does not perform transport work, so a stalled or retrying notifier cannot delay engine commands.
 
