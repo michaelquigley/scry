@@ -6,13 +6,13 @@ scry is a small status daemon for a hand-curated estate: active TCP/HTTP probes 
 
 1. Read the newest entries in `docs/journal/` as prior-session context. The code and `docs/current/` win if they disagree.
 2. Read `docs/current/` for behavior that has already landed.
-3. Read `docs/future/scry-work-order.md` and its backing `scry-spec.md` for the current implementation stage and the settled design.
+3. Read `docs/current/seam-census.md` for the settled design law, and `docs/future/roadmap/` for what's ahead.
 
 ## Implementation posture
 
-The work order lands in six stages. Implement one stage at a time, synthesize its built behavior into `docs/current/` and `CHANGELOG.md`, run Terminus to `clean` (up to three review rounds), then stop for Michael's review. Do not begin the next stage without that review.
+V1's staged work order was realized and retired 2026-07-29 (all six stages terminus-gated; git history keeps the spec and work order). Ongoing work arrives as roadmap cards: small work runs single-agent end-to-end; anything architectural spawns a spec and enters the design-build pipeline. Substantive changes are still gated by Terminus to `clean` — resolve or get an explicit veto on every finding — then stop for Michael's review. Synthesize built behavior into `docs/current/` and `CHANGELOG.md` as it lands.
 
-The seam census in the spec is load-bearing:
+The seam census is load-bearing (`docs/current/seam-census.md` is the full record):
 
 - the model knows neither transports nor rendering;
 - ingest and status use separate handler trees and separate listeners;
@@ -48,6 +48,12 @@ That filter keeps four kinds of thing and discards the rest:
 - **Live state** — what's unverified, unfinished, or waiting on something external.
 
 Skip change inventories, restatements of the diff, and play-by-play of how you worked. There's no write-time approval gate; Michael reviews on commit. Append to the day's file if it exists, and write the few lines you'd want the next agent to read — honest and self-contained.
+
+## Roadmap
+
+This repo's roadmap lives in `docs/future/roadmap/` — one frontmatter-markdown item per file, per the roadmap convention in the grimoire (software/conventions/roadmap-convention.md). You may add items freely: write the file directly with required `title`, `state: inbox`, and `created:` (today, YYYY-MM-DD), optional `tags`/`source`/`log`, and a body that is a small, clear prompt -- the problem or solution to execute, not documentation of it; trust the code and the day's journal entry for what's discoverable, and point a `log:` stamp at the specific journal entry when a card leans on hard-won context. Everything above the first `##` heading is the prompt; supporting material that isn't the prompt goes in named sections below it (`## why` for justification, `## background` for a longer description), which are conventional, never required, and never validated. The filename is the slug of the title (lowercase ASCII, hyphens; discard every other character); never overwrite an existing file. Read sibling items for the shape.
+
+Hard rules: never touch `order.yaml` (priority is the operator's judgment, set at triage); never commit roadmap changes unless directed — the uncommitted diff is the review queue; never delete items; edits change only the lines that express them. Label the kind from the house set when one fits: defect, documentation, enhancement, epic, feature, story; add `spike` alongside it when the work carries unknowns that need discovery.
 
 ## Project rules
 
