@@ -10,7 +10,9 @@ defaults:
 
 notifiers:
   mattermost:
-    webhook_url: "https://mattermost.example.com/hooks/replace-me"
+    url: "https://mattermost.example.com"
+    channel_id: "replace-with-channel-id"
+    token_env: "SCRY_MATTERMOST_TOKEN"
   smtp:
     host: "smtp.example.com"
     port: 25

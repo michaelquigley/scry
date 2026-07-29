@@ -62,6 +62,33 @@ func (repository *memoryRepository) saved() (state.Snapshot, int) {
 	return repository.snapshot.Clone(), repository.saves
 }
 
+type recordedEnqueue struct {
+	transition model.Transition
+	saves      int
+}
+
+type recordingTransitionQueue struct {
+	mu         sync.Mutex
+	repository *memoryRepository
+	enqueues   []recordedEnqueue
+}
+
+func (queue *recordingTransitionQueue) Enqueue(transition model.Transition) {
+	_, saves := queue.repository.saved()
+	queue.mu.Lock()
+	queue.enqueues = append(queue.enqueues, recordedEnqueue{
+		transition: transition,
+		saves:      saves,
+	})
+	queue.mu.Unlock()
+}
+
+func (queue *recordingTransitionQueue) recorded() []recordedEnqueue {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+	return append([]recordedEnqueue(nil), queue.enqueues...)
+}
+
 func engineActiveCheck(id string) model.Check {
 	return model.Check{
 		ID:        id,
@@ -147,7 +174,7 @@ func TestNewReconcilesAndPersistsBeforeReturning(t *testing.T) {
 		enginePassiveCheck("new"),
 	}
 
-	engine, err := New(checks, repository, clock.Now)
+	engine, err := New(checks, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +209,7 @@ func TestNewReconcilesAndPersistsBeforeReturning(t *testing.T) {
 	}
 
 	clock.now = engineEpoch.Add(6 * time.Hour)
-	restarted, err := New(checks, repository, clock.Now)
+	restarted, err := New(checks, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +226,7 @@ func TestRestartResumesWithoutRefire(t *testing.T) {
 	repository := &memoryRepository{}
 	check := enginePassiveCheck("job")
 
-	first, err := New([]model.Check{check}, repository, clock.Now)
+	first, err := New([]model.Check{check}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +240,7 @@ func TestRestartResumesWithoutRefire(t *testing.T) {
 		t.Fatalf("transition: %+v", transition)
 	}
 
-	restarted, err := New([]model.Check{check}, repository, clock.Now)
+	restarted, err := New([]model.Check{check}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +254,7 @@ func TestActiveNonTransitionPersistsOnFlushAndRestart(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &memoryRepository{}
 	check := engineActiveCheck("web")
-	first, err := New([]model.Check{check}, repository, clock.Now)
+	first, err := New([]model.Check{check}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +276,7 @@ func TestActiveNonTransitionPersistsOnFlushAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	restarted, err := New([]model.Check{check}, repository, clock.Now)
+	restarted, err := New([]model.Check{check}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +335,7 @@ func TestRestartedThresholdChangesHardenButNeverSoften(t *testing.T) {
 			clock := &fakeClock{now: engineEpoch}
 			check := engineActiveCheck("web")
 			check.FailAfter = test.failAfter
-			engine, err := New([]model.Check{check}, repository, clock.Now)
+			engine, err := New([]model.Check{check}, repository, clock.Now, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -331,7 +358,7 @@ func TestRestartedThresholdChangesHardenButNeverSoften(t *testing.T) {
 func TestReportIsPersistedBeforeReply(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &memoryRepository{}
-	engine, err := New([]model.Check{enginePassiveCheck("job")}, repository, clock.Now)
+	engine, err := New([]model.Check{enginePassiveCheck("job")}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +389,7 @@ func TestReportIsPersistedBeforeReply(t *testing.T) {
 func TestSweepCatchupAnnouncesOnce(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &memoryRepository{}
-	engine, err := New([]model.Check{enginePassiveCheck("job")}, repository, clock.Now)
+	engine, err := New([]model.Check{enginePassiveCheck("job")}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,10 +412,109 @@ func TestSweepCatchupAnnouncesOnce(t *testing.T) {
 	}
 }
 
+func TestEnginePersistsBeforeEnqueueAndSkipsSilentTransitions(t *testing.T) {
+	clock := &fakeClock{now: engineEpoch}
+	repository := &memoryRepository{}
+	queue := &recordingTransitionQueue{repository: repository}
+	engine, err := New(
+		[]model.Check{
+			engineActiveCheck("web"),
+			enginePassiveCheck("reported-job"),
+			enginePassiveCheck("silent-job"),
+		},
+		repository,
+		clock.Now,
+		queue,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := startEngine(t, engine)
+
+	clock.now = engineEpoch.Add(time.Minute)
+	transition, err := engine.ApplyActive(ctx, "web", model.Result{Status: model.StatusFailed, Detail: "one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transition == nil || transition.To != model.StateLate || transition.Announce {
+		t.Fatalf("first active failure: %+v", transition)
+	}
+	if enqueues := queue.recorded(); len(enqueues) != 0 {
+		t.Fatalf("silent active transition enqueued: %+v", enqueues)
+	}
+
+	clock.now = engineEpoch.Add(2 * time.Minute)
+	if _, err := engine.ApplyActive(ctx, "web", model.Result{Status: model.StatusFailed, Detail: "two"}); err != nil {
+		t.Fatal(err)
+	}
+	clock.now = engineEpoch.Add(3 * time.Minute)
+	if _, err := engine.ApplyActive(ctx, "web", model.Result{Status: model.StatusFailed, Detail: "three"}); err != nil {
+		t.Fatal(err)
+	}
+
+	clock.now = engineEpoch.Add(4 * time.Minute)
+	if _, err := engine.Report(ctx, "reported-job", model.Result{Status: model.StatusFailed, Detail: "exit 2"}); err != nil {
+		t.Fatal(err)
+	}
+
+	clock.now = engineEpoch.Add(33 * time.Hour)
+	if _, err := engine.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	enqueues := queue.recorded()
+	if len(enqueues) != 3 {
+		t.Fatalf("enqueues: %+v", enqueues)
+	}
+	wantIDs := []string{"web", "reported-job", "silent-job"}
+	wantSaves := []int{3, 4, 5}
+	for i := range enqueues {
+		if enqueues[i].transition.CheckID != wantIDs[i] || !enqueues[i].transition.Announce {
+			t.Fatalf("enqueue %d transition: %+v", i, enqueues[i].transition)
+		}
+		if enqueues[i].saves != wantSaves[i] {
+			t.Fatalf("enqueue %d observed saves %d, want %d", i, enqueues[i].saves, wantSaves[i])
+		}
+	}
+}
+
+func TestEngineDoesNotEnqueueWhenTransitionPersistenceFails(t *testing.T) {
+	clock := &fakeClock{now: engineEpoch}
+	repository := &memoryRepository{}
+	queue := &recordingTransitionQueue{repository: repository}
+	engine, err := New(
+		[]model.Check{enginePassiveCheck("job")},
+		repository,
+		clock.Now,
+		queue,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- engine.Run(ctx)
+	}()
+
+	repository.setSaveError(errors.New("disk full"))
+	_, err = engine.Report(ctx, "job", model.Result{Status: model.StatusFailed})
+	if err == nil || !strings.Contains(err.Error(), "disk full") {
+		t.Fatalf("report error: %v", err)
+	}
+	if runErr := <-errCh; runErr == nil || !strings.Contains(runErr.Error(), "disk full") {
+		t.Fatalf("run error: %v", runErr)
+	}
+	if enqueues := queue.recorded(); len(enqueues) != 0 {
+		t.Fatalf("failed transition persistence enqueued: %+v", enqueues)
+	}
+}
+
 func TestShutdownFlushesDirtyState(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &memoryRepository{}
-	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now)
+	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,7 +544,7 @@ func TestShutdownFlushesDirtyState(t *testing.T) {
 func TestRuntimeSaveFailureStopsEngine(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &memoryRepository{}
-	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now)
+	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,13 +572,13 @@ func TestRuntimeSaveFailureStopsEngine(t *testing.T) {
 func TestNewFailsOnLoadOrReconciliationSave(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	t.Run("load", func(t *testing.T) {
-		_, err := New(nil, &memoryRepository{loadErr: errors.New("corrupt")}, clock.Now)
+		_, err := New(nil, &memoryRepository{loadErr: errors.New("corrupt")}, clock.Now, nil)
 		if err == nil || !strings.Contains(err.Error(), "corrupt") {
 			t.Fatalf("error: %v", err)
 		}
 	})
 	t.Run("save", func(t *testing.T) {
-		_, err := New(nil, &memoryRepository{saveErr: errors.New("read only")}, clock.Now)
+		_, err := New(nil, &memoryRepository{saveErr: errors.New("read only")}, clock.Now, nil)
 		if err == nil || !strings.Contains(err.Error(), "read only") {
 			t.Fatalf("error: %v", err)
 		}
@@ -465,6 +591,7 @@ func TestSnapshotIsADeepRegistryOrderedCopy(t *testing.T) {
 		[]model.Check{enginePassiveCheck("first"), engineActiveCheck("second")},
 		&memoryRepository{},
 		clock.Now,
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)

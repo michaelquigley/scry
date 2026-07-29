@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/michaelquigley/scry/internal/config"
 	"github.com/michaelquigley/scry/internal/engine"
 	"github.com/michaelquigley/scry/internal/ingest"
 	"github.com/michaelquigley/scry/internal/model"
+	"github.com/michaelquigley/scry/internal/notify"
 	"github.com/michaelquigley/scry/internal/strategy"
 )
 
@@ -44,6 +47,40 @@ func configuredPassiveChecks(cfg *config.Config) []ingest.Check {
 		})
 	}
 	return checks
+}
+
+// configuredNotifiers builds every configured delivery destination.
+func configuredNotifiers(cfg *config.Config) ([]notify.Destination, error) {
+	destinations := make([]notify.Destination, 0, 2)
+	if cfg.Notifiers.Mattermost != nil {
+		configured := cfg.Notifiers.Mattermost
+		destinations = append(destinations, notify.Destination{
+			Name: "mattermost",
+			Notifier: notify.NewMattermost(
+				configured.URL,
+				configured.ChannelID,
+				configured.TokenEnv,
+				configured.Token,
+			),
+		})
+	}
+	if cfg.Notifiers.SMTP != nil {
+		configured := cfg.Notifiers.SMTP
+		notifier, err := notify.NewSMTP(
+			configured.Host,
+			configured.Port,
+			configured.From,
+			configured.To,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("configure smtp notifier: %w", err)
+		}
+		destinations = append(destinations, notify.Destination{
+			Name:     "smtp",
+			Notifier: notifier,
+		})
+	}
+	return destinations, nil
 }
 
 // configuredActiveChecks builds the active scheduling registry.

@@ -1,6 +1,6 @@
 # Configuration
 
-Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks and the passive-report ingest listener until SIGINT or SIGTERM. The status listener address is validated now but remains dormant until the status API and dashboard stage lands.
+Scry validates the complete v1 configuration, reconciles and persists the state file, then runs active checks, the passive-report ingest listener, and configured notification workers until SIGINT or SIGTERM. The status listener address is validated now but remains dormant until the status API and dashboard stage lands.
 
 ## Cascade
 
@@ -41,6 +41,30 @@ Active checks inherit `interval`, `timeout`, and `fail_after`; passive checks in
 The ingest listener is constrained to a loopback address because external exposure belongs to the reserved zrok share in the deployment design. Listener ports and TCP target ports must be numeric and lie between 1 and 65535.
 
 Passive tokens authenticate `GET|POST /report/<check-id>` on that isolated listener. Active checks have no ingest endpoint.
+
+## Notifiers
+
+Both notification blocks are optional. When present, each announced transition fans out to each configured destination:
+
+```yaml
+notifiers:
+  mattermost:
+    url: "https://mattermost.example.com"
+    channel_id: "replace-with-channel-id"
+    token_env: "SCRY_MATTERMOST_TOKEN"
+  smtp:
+    host: "smtp.example.com"
+    port: 25
+    from: "scry@example.com"
+    to:
+      - "operator@example.com"
+```
+
+Mattermost uses a bot account to post into one channel. `url` must be an absolute HTTP or HTTPS server URL, and `channel_id` must be non-empty. The token is resolved from the environment variable named by `token_env`, falling back to an inline `token` value when that variable is unset or empty; environment wins when both are populated. The resolved token must be non-empty at boot. Supplying it through the service environment is the recommended production shape.
+
+SMTP requires a non-empty relay host, a port from 1 through 65535, one valid sender address, and at least one valid recipient address. Display-name forms such as `"Scry <scry@example.com>"` are accepted.
+
+SMTP is intentionally the unauthenticated house-relay shape: there are no credential fields. Scry upgrades with STARTTLS when the relay advertises it and verifies the relay certificate; otherwise it continues on the existing connection. See [Notifications](notifications.md) for delivery and retry behavior.
 
 ## Command surface
 

@@ -30,7 +30,7 @@ func (repository *schedulerRepository) Save(snapshot state.Snapshot) error {
 }
 
 func TestNewSchedulerValidatesChecksAndJitter(t *testing.T) {
-	engine, err := New(nil, &memoryRepository{}, (&fakeClock{now: engineEpoch}).Now)
+	engine, err := New(nil, &memoryRepository{}, (&fakeClock{now: engineEpoch}).Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestEvaluateProbeTurnsLiveDeadlineIntoFailure(t *testing.T) {
 func TestSchedulerDeliversInitialProbeThroughEngine(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &schedulerRepository{saved: make(chan struct{}, 2)}
-	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now)
+	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

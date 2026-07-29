@@ -15,6 +15,7 @@ import (
 	"github.com/michaelquigley/scry/internal/config"
 	"github.com/michaelquigley/scry/internal/engine"
 	"github.com/michaelquigley/scry/internal/ingest"
+	"github.com/michaelquigley/scry/internal/notify"
 	"github.com/michaelquigley/scry/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -63,8 +64,16 @@ func run(_ *cobra.Command, _ []string) {
 }
 
 func runDaemon(ctx context.Context, cfg *config.Config) error {
+	destinations, err := configuredNotifiers(cfg)
+	if err != nil {
+		return fmt.Errorf("initialize notifiers: %w", err)
+	}
+	dispatcher, err := notify.NewDispatcher(destinations)
+	if err != nil {
+		return fmt.Errorf("initialize notifier dispatcher: %w", err)
+	}
 	stateStore := state.NewStore(cfg.StateFile)
-	stateEngine, err := engine.New(configuredChecks(cfg), stateStore, time.Now)
+	stateEngine, err := engine.New(configuredChecks(cfg), stateStore, time.Now, dispatcher)
 	if err != nil {
 		return fmt.Errorf("initialize engine: %w", err)
 	}
@@ -83,15 +92,17 @@ func runDaemon(ctx context.Context, cfg *config.Config) error {
 	}
 
 	dl.Infof(
-		"daemon started; checks='%d' active='%d' ingest='%s'",
+		"daemon started; checks='%d' active='%d' notifiers='%d' ingest='%s'",
 		len(cfg.Checks),
 		len(active),
+		len(destinations),
 		ingestServer.Addr().String(),
 	)
 	if err := runComponents(
 		ctx,
 		component{name: "engine", run: stateEngine.Run},
 		component{name: "scheduler", run: scheduler.Run},
+		component{name: "notifier dispatcher", run: dispatcher.Run},
 		component{name: "ingest listener", run: ingestServer.Run},
 	); err != nil {
 		return err

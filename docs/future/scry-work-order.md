@@ -4,7 +4,7 @@ Companion to [scry-spec.md](scry-spec.md). Drafted 2026-07-24 in the planning se
 
 ## Scope
 
-V1 is a single Go daemon with **zero overlay dependencies**: three check kinds (`tcp` and `http` active probes, `passive` reports), two HTTP listeners (ingest on localhost behind an external zrok share; status page + JSON API on the LAN), two notifiers (Mattermost webhook, SMTP), a JSON state file, and an embedded single-page dashboard. No database, no openziti SDK, no zrok SDK.
+V1 is a single Go daemon with **zero overlay dependencies**: three check kinds (`tcp` and `http` active probes, `passive` reports), two HTTP listeners (ingest on localhost behind an external zrok share; status page + JSON API on the LAN), two notifiers (Mattermost bot via the shared house client, SMTP), a JSON state file, and an embedded single-page dashboard. No database, no openziti SDK, no zrok SDK.
 
 Out of scope: the `ziti` strategy (deferred to the agent follow-on), the agent strategy and reference agent, the embedding package, the MCP surface, metrics, and all host provisioning (systemd units, `zrok reserve`, token minting, crontab edits) — the last documented as a bridge page, not built.
 
@@ -120,7 +120,9 @@ defaults:
 
 notifiers:
   mattermost:
-    webhook_url: "https://mm.example.com/hooks/..."
+    url: "https://mm.example.com"
+    channel_id: "abc123..."
+    token_env: "SCRY_MATTERMOST_TOKEN"   # or `token:` inline; env wins
   smtp:
     host: "smtp.hq"
     port: 25
@@ -200,10 +202,10 @@ Single page, no router, no charts (the metrics fence). Rollup banner (all-green,
 
 Message content, both notifiers: check name and id, old → new state, time spent in the old state, last-result detail, timestamp. Subject/first-line form: `[scry] nas-snapshot: late → failed`.
 
-- **Mattermost** — `POST` webhook, `{"text": "..."}` with light markdown.
-- **SMTP** — stdlib `net/smtp` (frozen but sufficient for a house relay: PLAIN auth, STARTTLS). No in-house precedent exists; if the relay needs more, `wneessen/go-mail` is the fallback — decide at stage 5, not before. At stage 5, also narrow this prose to what the HQ relay actually requires, adding credential/TLS config fields only if the relay demonstrably needs them — the config example deliberately shows none.
+- **Mattermost** — the shared house client, imported: `theharnessbody/mattermost` (lifted from sexton's proven implementation). The notifier constructs `NewClient` with `{URL, TokenEnv → Token fallback}` and delivers via `PostMessage(channel_id, message)`; `Start` is never called — posting only, no websocket, no bot-identity resolution. `PostMessage` takes no ctx; its internal 10s client timeout is tighter than the dispatcher's 30s attempt deadline, so the finite-attempt bound holds upstream (a `PostMessageContext` variant is a noted upstream improvement, not scry's to build). Amended 2026-07-28 from the original webhook design — standardization over per-tool transports; the mattermost stalled-peer bound transfers to the shared client's fixed timeout, with the adapter tested for posting correctness (`/api/v4/posts`, bearer header, channel payload) via httptest.
+- **SMTP** — stdlib `net/smtp` against the unauthenticated house relay. Scry upgrades with STARTTLS when the relay advertises it and verifies the relay certificate; otherwise it continues on the existing connection. The stage-5 implementation deliberately adds no credential or TLS-policy fields because the configured HQ relay shape requires none. If that relay contract changes, revisit the configuration surface and mail implementation together.
 
-Dispatch: the dispatcher owns an unbounded in-memory FIFO per notifier; the engine's enqueue is an append under a mutex — always instant, never blocking, regardless of delivery state. One delivery goroutine per notifier drains its queue: the dispatcher wraps each attempt in a 30s `context.WithTimeout` — deadline policy lives in the dispatcher, not in each implementation — with per-message retry and backoff (5 attempts over ~10 minutes), then drop with an error log. Every `Notify` implementation must return promptly on ctx cancellation: a hang is a bug, not a slow delivery. `net/smtp` predates context, so the SMTP notifier honors it via `DialContext` and connection deadlines derived from the ctx deadline; Mattermost gets it free through the request context. This shape is what lets both commitments hold at once — the engine never waits (census) and announced transitions are never shed to backpressure (announce-once); at sixty entities the queue's practical size is trivial. Undelivered notifications do not survive a daemon restart — accepted at this scale; the state file is authoritative, the page still shows truth.
+Dispatch: the dispatcher owns an unbounded in-memory FIFO per notifier; the engine's enqueue is an append under a mutex — always instant, never blocking, regardless of delivery state. One delivery goroutine per notifier drains its queue: the dispatcher wraps each attempt in a 30s `context.WithTimeout` — deadline policy lives in the dispatcher, not in each implementation — with per-message retry and backoff (5 attempts over ~10 minutes), then drop with an error log. `net/smtp` predates context, so the SMTP notifier honors cancellation via `DialContext` and connection deadlines derived from the ctx deadline. The Mattermost adapter rejects an already-canceled ctx before posting; once its ctx-less shared-client call begins, that client's fixed 10s HTTP timeout supplies a tighter finite bound than the dispatcher's attempt deadline. This shape is what lets both commitments hold at once — the engine never waits (census) and announced transitions are never shed to backpressure (announce-once); at sixty entities the queue's practical size is trivial. Undelivered notifications do not survive a daemon restart — accepted at this scale; the state file is authoritative, the page still shows truth.
 
 ## Scheduling
 
@@ -216,7 +218,7 @@ One engine goroutine owns the state map. Active checks probe from per-check goro
 - `internal/state`: save/load round-trips — boot reconciliation persisted before steady state; baselines, prunes, and kind resets surviving a restart; a non-transitioning second active failure's counter surviving a flush-and-restart.
 - `internal/ingest` + `internal/server`: `httptest` round-trips — auth (including the spec's canonical lowercase `authorization: bearer <token>` header, verbatim), malformed bodies, multibyte detail truncation at the rune boundary, unknown ids, method policing (405; GET body ignored), the status walk. Plus cross-surface isolation: the ingest handler returns 404 for `/api/status` and UI paths, the status handler returns 404 for `/report/*` — the decision-7 blast-radius guarantee as an acceptance condition, not an assertion.
 - `internal/strategy`: real listeners on `127.0.0.1:0` for tcp/http; timeout paths via unroutable addresses and stalled handlers; redirect non-following (a 302ing local server judged as 302, never its destination).
-- `internal/notify`: stalled-peer tests — deliberately hung local HTTP and SMTP listeners proving each attempt returns at its ctx deadline and the worker advances into retry and eventual drop.
+- `internal/notify`: a Mattermost adapter round-trip proving `/api/v4/posts`, bearer authentication, channel/message payload, and non-2xx failure; stalled-peer SMTP tests proving each attempt returns at its ctx deadline and the worker advances into retry and eventual drop. The shared Mattermost client's fixed 10s timeout is verified upstream.
 - No external network, no overlay, no sleeps — the clock is injected everywhere.
 
 ## Slicing
@@ -234,11 +236,11 @@ Stages 3–5 are independent of each other and could reorder; 1 → 2 is strict,
 
 ## Dependencies
 
-Go: `github.com/michaelquigley/df` (dd, dl), `github.com/michaelquigley/push` (build/version), `github.com/spf13/cobra`, `github.com/ogen-go/ogen` (generated status-API server), stdlib otherwise. UI: react 19, vite, typescript, openapi-typescript. Nothing else — no overlay SDKs, no database driver, no mail library (pending stage 5).
+Go: `github.com/michaelquigley/df` (dd, dl), `github.com/michaelquigley/push` (build/version), `github.com/spf13/cobra`, `github.com/ogen-go/ogen` (generated status-API server), `github.com/michaelquigley/theharnessbody` (shared mattermost client; gorilla/websocket rides along unused by scry's posting-only use), stdlib otherwise. UI: react 19, vite, typescript, openapi-typescript. Nothing else — no overlay SDKs, no database driver, no third-party mail library.
 
 ## Operations Bridge (documented, not built)
 
-`docs/current/deployment.md` at stage 6 records the expected HQ arrangement: the scry systemd unit; the `zrok reserve` + `zrok share reserved` unit beside it fronting `127.0.0.1:8421`; token minting (`openssl rand -hex 16` per passive check, pasted into config); the crontab migration line per the spec; LAN exposure of `:8420`.
+`docs/current/deployment.md` at stage 6 records the expected HQ arrangement: the scry systemd unit, with the Mattermost bot token supplied through an `EnvironmentFile` (`SCRY_MATTERMOST_TOKEN`, per the `token_env` config); the `zrok reserve` + `zrok share reserved` unit beside it fronting `127.0.0.1:8421`; token minting (`openssl rand -hex 16` per passive check, pasted into config); bot-account creation on the Mattermost side; the crontab migration line per the spec; LAN exposure of `:8420`.
 
 ## Foreseen, Not Built
 

@@ -2,7 +2,7 @@
 
 Scry's transport-free core contains the runtime model, exact transition rules, paired notification decisions, one serialized state owner, and the durable JSON state file. Probe implementations live outside this core and submit opaque results through the scheduler; no HTTP, notifier, or rendering type participates in model decisions.
 
-The daemon reconciles state before startup succeeds, then runs the engine, scheduler, and isolated ingest listener together. SIGINT, SIGTERM, or a fatal component error cancels all three and waits for their shutdown.
+The daemon reconciles state before startup succeeds, then runs the engine, scheduler, isolated ingest listener, and notification dispatcher together. SIGINT, SIGTERM, or a fatal component error cancels every component and waits for shutdown.
 
 ## Model
 
@@ -38,6 +38,8 @@ Notification decisions are carried on transitions:
 ## Ownership and Clock
 
 One engine loop owns the mutable record map. Callers submit active results, passive reports, sweep ticks, and flush requests through commands; application, transition detection, and persistence happen serially. Readers use a separately published deep copy in registry order, so neither the eventual API nor another caller can mutate engine state.
+
+When a transition carries `announce: true`, the engine persists the resulting state before appending a copied transition to the notification dispatcher. Silent transitions never enter the dispatcher. Enqueue does not perform transport work, so a stalled or retrying notifier cannot delay engine commands.
 
 The clock is mandatory at construction. The engine reads it once per input or sweep and passes that time into pure model functions. No package under `internal/` reads wall-clock time; `cmd/scry` is the only place that wires `time.Now`.
 

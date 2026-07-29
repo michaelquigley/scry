@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -47,9 +48,12 @@ type NotifierConfig struct {
 	SMTP       *SMTPConfig       `dd:"smtp"`
 }
 
-// MattermostConfig configures a Mattermost incoming webhook.
+// MattermostConfig configures bot-account posting to one channel.
 type MattermostConfig struct {
-	WebhookURL string `dd:"webhook_url"`
+	URL       string `dd:"url"`
+	ChannelID string `dd:"channel_id"`
+	TokenEnv  string `dd:"token_env"`
+	Token     string `dd:"token"`
 }
 
 // SMTPConfig configures delivery through a house SMTP relay.
@@ -305,9 +309,15 @@ func (check *Check) validateActiveThresholds(defaults Defaults) error {
 
 func (cfg NotifierConfig) validate() error {
 	if cfg.Mattermost != nil {
-		parsed, err := url.Parse(cfg.Mattermost.WebhookURL)
+		parsed, err := url.Parse(cfg.Mattermost.URL)
 		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			return fmt.Errorf("notifiers.mattermost.webhook_url must be an http or https URL")
+			return fmt.Errorf("notifiers.mattermost.url must be an http or https URL")
+		}
+		if strings.TrimSpace(cfg.Mattermost.ChannelID) == "" {
+			return fmt.Errorf("notifiers.mattermost.channel_id is required")
+		}
+		if cfg.Mattermost.resolvedToken() == "" {
+			return fmt.Errorf("notifiers.mattermost token is required through token_env or token")
 		}
 	}
 	if cfg.SMTP != nil {
@@ -320,6 +330,9 @@ func (cfg NotifierConfig) validate() error {
 		if strings.TrimSpace(cfg.SMTP.From) == "" {
 			return fmt.Errorf("notifiers.smtp.from is required")
 		}
+		if _, err := mail.ParseAddress(cfg.SMTP.From); err != nil {
+			return fmt.Errorf("notifiers.smtp.from must be a valid email address")
+		}
 		if len(cfg.SMTP.To) == 0 {
 			return fmt.Errorf("notifiers.smtp.to must contain at least one recipient")
 		}
@@ -327,9 +340,21 @@ func (cfg NotifierConfig) validate() error {
 			if strings.TrimSpace(recipient) == "" {
 				return fmt.Errorf("notifiers.smtp.to[%d] is empty", i)
 			}
+			if _, err := mail.ParseAddress(recipient); err != nil {
+				return fmt.Errorf("notifiers.smtp.to[%d] must be a valid email address", i)
+			}
 		}
 	}
 	return nil
+}
+
+func (cfg MattermostConfig) resolvedToken() string {
+	if cfg.TokenEnv != "" {
+		if token := os.Getenv(cfg.TokenEnv); token != "" {
+			return token
+		}
+	}
+	return cfg.Token
 }
 
 func validateHTTP(checkID string, cfg *HTTPConfig) error {

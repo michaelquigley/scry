@@ -291,7 +291,7 @@ func TestNoContentMeansReportWasDurablyRecorded(t *testing.T) {
 		Grace:       2 * time.Hour,
 		HardenAfter: 3,
 	}
-	stateEngine, err := engine.New([]model.Check{check}, repository, func() time.Time { return at })
+	stateEngine, err := engine.New([]model.Check{check}, repository, func() time.Time { return at }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -199,11 +199,20 @@ func TestValidateRejections(t *testing.T) {
 			c.Checks[0].Passive = &PassiveConfig{Period: time.Hour, Grace: time.Minute}
 		}, "passive.token"},
 		{"bad mattermost url", func(c *Config) {
-			c.Notifiers.Mattermost = &MattermostConfig{WebhookURL: "mattermost.example.com/hook"}
-		}, "webhook_url"},
+			c.Notifiers.Mattermost = &MattermostConfig{URL: "mattermost.example.com", ChannelID: "channel", Token: "token"}
+		}, "mattermost.url"},
+		{"missing mattermost channel", func(c *Config) {
+			c.Notifiers.Mattermost = &MattermostConfig{URL: "https://mattermost.example.com", Token: "token"}
+		}, "channel_id"},
 		{"bad smtp port", func(c *Config) {
 			c.Notifiers.SMTP = &SMTPConfig{Host: "smtp", Port: 0, From: "scry@example.com", To: []string{"me@example.com"}}
 		}, "smtp.port"},
+		{"bad smtp from", func(c *Config) {
+			c.Notifiers.SMTP = &SMTPConfig{Host: "smtp", Port: 25, From: "not an address", To: []string{"me@example.com"}}
+		}, "smtp.from"},
+		{"bad smtp recipient", func(c *Config) {
+			c.Notifiers.SMTP = &SMTPConfig{Host: "smtp", Port: 25, From: "scry@example.com", To: []string{"not an address"}}
+		}, "smtp.to[0]"},
 	}
 
 	for _, test := range cases {
@@ -216,6 +225,46 @@ func TestValidateRejections(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), test.want) {
 				t.Errorf("error %q does not mention %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestMattermostTokenResolution(t *testing.T) {
+	const tokenEnv = "SCRY_TEST_MATTERMOST_TOKEN"
+	tests := []struct {
+		name      string
+		envToken  string
+		token     string
+		want      string
+		wantError bool
+	}{
+		{name: "environment wins over inline", envToken: "from-env", token: "inline", want: "from-env"},
+		{name: "inline fallback", token: "inline", want: "inline"},
+		{name: "both empty rejected", wantError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv(tokenEnv, test.envToken)
+			cfg := validConfig()
+			cfg.Notifiers.Mattermost = &MattermostConfig{
+				URL:       "https://mattermost.example.com",
+				ChannelID: "channel",
+				TokenEnv:  tokenEnv,
+				Token:     test.token,
+			}
+			err := cfg.Validate()
+			if test.wantError {
+				if err == nil || !strings.Contains(err.Error(), "token is required") {
+					t.Fatalf("error: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := cfg.Notifiers.Mattermost.resolvedToken(); got != test.want {
+				t.Fatalf("resolved token: %q, want %q", got, test.want)
 			}
 		})
 	}

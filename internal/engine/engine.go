@@ -25,6 +25,11 @@ type Repository interface {
 	Save(state.Snapshot) error
 }
 
+// TransitionQueue accepts announced transitions without delivery backpressure.
+type TransitionQueue interface {
+	Enqueue(model.Transition)
+}
+
 // Snapshot is the registry-ordered read model published by the engine.
 type Snapshot struct {
 	Checks []model.CheckRecord
@@ -42,14 +47,15 @@ func (snapshot Snapshot) Clone() Snapshot {
 
 // Engine owns all mutable records inside Run's serialized command loop.
 type Engine struct {
-	checks     []model.Check
-	registry   map[string]model.Check
-	records    map[string]model.Record
-	repository Repository
-	clock      Clock
-	commands   chan command
-	done       chan struct{}
-	started    atomic.Bool
+	checks      []model.Check
+	registry    map[string]model.Check
+	records     map[string]model.Record
+	repository  Repository
+	clock       Clock
+	transitions TransitionQueue
+	commands    chan command
+	done        chan struct{}
+	started     atomic.Bool
 
 	snapshotMu sync.RWMutex
 	snapshot   Snapshot
@@ -58,7 +64,7 @@ type Engine struct {
 }
 
 // New loads, reconciles, and persists state before returning a runnable engine.
-func New(checks []model.Check, repository Repository, clock Clock) (*Engine, error) {
+func New(checks []model.Check, repository Repository, clock Clock, transitions TransitionQueue) (*Engine, error) {
 	if repository == nil {
 		return nil, fmt.Errorf("state repository is required")
 	}
@@ -67,13 +73,14 @@ func New(checks []model.Check, repository Repository, clock Clock) (*Engine, err
 	}
 
 	engine := &Engine{
-		checks:     make([]model.Check, len(checks)),
-		registry:   make(map[string]model.Check, len(checks)),
-		records:    make(map[string]model.Record, len(checks)),
-		repository: repository,
-		clock:      clock,
-		commands:   make(chan command),
-		done:       make(chan struct{}),
+		checks:      make([]model.Check, len(checks)),
+		registry:    make(map[string]model.Check, len(checks)),
+		records:     make(map[string]model.Record, len(checks)),
+		repository:  repository,
+		clock:       clock,
+		transitions: transitions,
+		commands:    make(chan command),
+		done:        make(chan struct{}),
 	}
 	copy(engine.checks, checks)
 	for _, check := range engine.checks {
@@ -262,6 +269,7 @@ func (engine *Engine) handleActive(id string, result model.Result) (response, er
 			return response{err: fatal}, fatal
 		}
 	}
+	engine.enqueue(change.Transition)
 	engine.publish()
 	return response{transition: cloneTransition(change.Transition)}, nil
 }
@@ -282,6 +290,7 @@ func (engine *Engine) handleReport(id string, result model.Result) (response, er
 		fatal := fmt.Errorf("persist report for check %q: %w", id, err)
 		return response{err: fatal}, fatal
 	}
+	engine.enqueue(change.Transition)
 	engine.publish()
 	return response{transition: cloneTransition(change.Transition)}, nil
 }
@@ -310,6 +319,9 @@ func (engine *Engine) handleSweep() (response, error) {
 	if err := engine.persist(); err != nil {
 		fatal := fmt.Errorf("persist passive sweep: %w", err)
 		return response{err: fatal}, fatal
+	}
+	for i := range transitions {
+		engine.enqueue(&transitions[i])
 	}
 	engine.publish()
 	return response{transitions: transitions}, nil
@@ -356,6 +368,13 @@ func (engine *Engine) publish() {
 	engine.snapshotMu.Lock()
 	engine.snapshot = snapshot
 	engine.snapshotMu.Unlock()
+}
+
+func (engine *Engine) enqueue(transition *model.Transition) {
+	if transition == nil || !transition.Announce || engine.transitions == nil {
+		return
+	}
+	engine.transitions.Enqueue(*cloneTransition(transition))
 }
 
 func cloneTransition(transition *model.Transition) *model.Transition {

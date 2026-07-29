@@ -68,4 +68,31 @@ func TestConfiguredChecksPreserveRegistryOrderAndRules(t *testing.T) {
 	if len(passive) != 1 || passive[0].ID != "job" || passive[0].Token != "token" {
 		t.Fatalf("passive registry: %+v", passive)
 	}
+
+	destinations, err := configuredNotifiers(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(destinations) != 0 {
+		t.Fatalf("notifier registry: %+v", destinations)
+	}
+
+	cfg.Notifiers.Mattermost = &config.MattermostConfig{
+		URL:       "https://mattermost.example.com",
+		ChannelID: "channel",
+		Token:     "token",
+	}
+	cfg.Notifiers.SMTP = &config.SMTPConfig{
+		Host: "smtp.example.com",
+		Port: 25,
+		From: "scry@example.com",
+		To:   []string{"operator@example.com"},
+	}
+	destinations, err = configuredNotifiers(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(destinations) != 2 || destinations[0].Name != "mattermost" || destinations[1].Name != "smtp" {
+		t.Fatalf("notifier registry: %+v", destinations)
+	}
 }
