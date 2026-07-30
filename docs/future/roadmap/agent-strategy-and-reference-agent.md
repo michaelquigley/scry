@@ -1,8 +1,9 @@
 ---
 title: agent strategy and reference agent
-state: inbox
+state: horizon
 created: 2026-07-29
 tags: [epic]
+milestone: v0.1.x
 source: docs/future/scry-spec.md (retired at v1 close-out; full text in git history)
 ---
 

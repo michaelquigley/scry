@@ -1,8 +1,9 @@
 ---
 title: mcp status reader
-state: inbox
+state: horizon
 created: 2026-07-29
 tags: [feature]
+milestone: v0.1.x
 source: docs/future/scry-spec.md (retired at v1 close-out)
 ---
 

@@ -1,8 +1,9 @@
 ---
-title: embedding package
-state: inbox
+title: embedding sdk
+state: horizon
 created: 2026-07-29
 tags: [feature]
+milestone: v0.2.x
 source: docs/future/scry-spec.md (retired at v1 close-out)
 ---
 
