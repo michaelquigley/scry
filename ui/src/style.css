@@ -204,6 +204,7 @@ h1 {
 
 .app-footer-brand {
   --app-footer-logo-height: 16.25px;
+  --app-footer-scry-logo-height: 18px;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -219,10 +220,13 @@ h1 {
 }
 
 /* "scry" carries a descender the sibling wordmarks don't, so its tight box
-   holds its baseline at 69.4% where reef/metawoo sit at ~92.5%; this shift
-   levels the baselines at the shared height (computed from font metrics). */
+   holds its baseline at 69.4% where reef/metawoo sit at ~92.5%. with both
+   marks center-aligned, baselines level when the scry mark shifts down by
+   16.25 x 0.4225 - 18 x 0.1945 = 3.4px (from the Archivo Black metrics;
+   recompute if either height changes). */
 .app-footer-scry-logo {
-  transform: translateY(3.7px);
+  height: var(--app-footer-scry-logo-height);
+  transform: translateY(3.4px);
 }
 
 .app-footer-separator {
