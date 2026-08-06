@@ -46,13 +46,15 @@ export function elapsedSince(from: string, to: string): number {
   return end - start
 }
 
-// formatTimestampWithAge renders a timestamp with how long ago it was,
-// measured against the given reference. an unmeasurable age degrades to the
-// bare timestamp.
-export function formatTimestampWithAge(value: string, reference: string): string {
+// formatTimestampWithAge renders a timestamp with how long ago it was: the
+// daemon-computed span to the reference, plus extraMs of locally elapsed time
+// since the document arrived. each term stays in its own clock frame, so ages
+// tick live without mixing daemon and browser clocks. an unmeasurable age
+// degrades to the bare timestamp.
+export function formatTimestampWithAge(value: string, reference: string, extraMs = 0): string {
   const elapsed = elapsedSince(value, reference)
-  if (Number.isNaN(elapsed) || elapsed < 0) {
+  if (Number.isNaN(elapsed) || elapsed + extraMs < 0) {
     return formatTimestamp(value)
   }
-  return `${formatTimestamp(value)} · ${formatDuration(elapsed)} ago`
+  return `${formatTimestamp(value)} · ${formatDuration(elapsed + extraMs)} ago`
 }

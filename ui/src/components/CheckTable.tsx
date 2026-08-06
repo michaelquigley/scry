@@ -16,7 +16,17 @@ function troubleFirst(checks: Check[]): Check[] {
   })
 }
 
-export function CheckTable({ checks, generated }: { checks: Check[]; generated: string }) {
+export function CheckTable({
+  checks,
+  generated,
+  ageOffset,
+}: {
+  checks: Check[]
+  generated: string
+  // locally elapsed ms since this document arrived; added to every
+  // daemon-computed span so ages tick live between polls.
+  ageOffset: number
+}) {
   if (checks.length === 0) {
     return null
   }
@@ -43,9 +53,11 @@ export function CheckTable({ checks, generated }: { checks: Check[]; generated: 
                 {check.id} · {check.kind}
               </div>
             </td>
-            <td className="numeric">{formatDuration(elapsedSince(check.since, generated))}</td>
+            <td className="numeric">{formatDuration(elapsedSince(check.since, generated) + ageOffset)}</td>
             <td className="numeric">
-              {check.last_transition ? formatTimestampWithAge(check.last_transition, generated) : '—'}
+              {check.last_transition
+                ? formatTimestampWithAge(check.last_transition, generated, ageOffset)
+                : '—'}
             </td>
             <td className="detail">{check.detail || '—'}</td>
           </tr>
