@@ -46,6 +46,14 @@ type Defaults struct {
 type NotifierConfig struct {
 	Mattermost *MattermostConfig `dd:"mattermost"`
 	SMTP       *SMTPConfig       `dd:"smtp"`
+	Sendmail   *SendmailConfig   `dd:"sendmail"`
+}
+
+// SendmailConfig configures delivery through the host MTA's sendmail binary.
+type SendmailConfig struct {
+	Path string   `dd:"path"`
+	From string   `dd:"from"`
+	To   []string `dd:"to"`
 }
 
 // MattermostConfig configures bot-account posting to one channel.
@@ -342,6 +350,19 @@ func (cfg NotifierConfig) validate() error {
 			}
 			if _, err := mail.ParseAddress(recipient); err != nil {
 				return fmt.Errorf("notifiers.smtp.to[%d] must be a valid email address", i)
+			}
+		}
+	}
+	if cfg.Sendmail != nil {
+		if _, err := mail.ParseAddress(cfg.Sendmail.From); err != nil {
+			return fmt.Errorf("notifiers.sendmail.from must be a valid email address")
+		}
+		if len(cfg.Sendmail.To) == 0 {
+			return fmt.Errorf("notifiers.sendmail.to must contain at least one recipient")
+		}
+		for i, recipient := range cfg.Sendmail.To {
+			if _, err := mail.ParseAddress(recipient); err != nil {
+				return fmt.Errorf("notifiers.sendmail.to[%d] must be a valid email address", i)
 			}
 		}
 	}

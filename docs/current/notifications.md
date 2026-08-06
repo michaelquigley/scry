@@ -34,3 +34,7 @@ The shared client's posting call has a fixed 10-second HTTP timeout, tighter tha
 ## SMTP
 
 SMTP delivery uses the standard-library client with the configured envelope sender and recipients. It is designed for an unauthenticated house relay. When the relay advertises STARTTLS, Scry upgrades and verifies the certificate using the configured relay host; when STARTTLS is absent, it sends over the existing relay connection. No SMTP credentials or insecure-TLS escape hatch are part of the v1 configuration.
+
+## Sendmail
+
+Sendmail delivery hands the same message to the host MTA's `sendmail` binary (`notifiers.sendmail`; `path` defaults to `/usr/bin/sendmail`). The MTA owns queueing and retry beyond the dispatcher's own attempts — a relay outage becomes the MTA's store-and-forward problem instead of a dropped notification — and no mail credential appears anywhere in scry's configuration. The binary is verified to exist and be executable at boot; each delivery runs under the dispatcher's attempt deadline, is invoked with `-i -f <envelope-from>` and explicit recipient arguments, and reports a non-zero exit as a normal retryable delivery error with the MTA's output as detail. A host that runs the sendmail notifier must have a configured MTA; hosts without one use the direct SMTP notifier instead. This is a local-delivery implementation detail behind the `Notifier` facade — the agent protocol's no-exec fence governs a network surface and is untouched by it.

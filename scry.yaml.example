@@ -19,6 +19,14 @@ notifiers:
     from: "scry@example.com"
     to:
       - "operator@example.com"
+  # sendmail delivers through the host MTA instead of a direct relay: the MTA
+  # owns queueing and retry, and no credential appears in this file. path
+  # defaults to /usr/bin/sendmail. usually configured instead of smtp, not
+  # alongside it.
+  # sendmail:
+  #   from: "scry@example.com"
+  #   to:
+  #     - "operator@example.com"
 
 checks:
   - id: nas-snapshot

@@ -210,6 +210,15 @@ func TestValidateRejections(t *testing.T) {
 		{"bad smtp from", func(c *Config) {
 			c.Notifiers.SMTP = &SMTPConfig{Host: "smtp", Port: 25, From: "not an address", To: []string{"me@example.com"}}
 		}, "smtp.from"},
+		{"bad sendmail from", func(c *Config) {
+			c.Notifiers.Sendmail = &SendmailConfig{From: "not an address", To: []string{"me@example.com"}}
+		}, "sendmail.from"},
+		{"empty sendmail recipients", func(c *Config) {
+			c.Notifiers.Sendmail = &SendmailConfig{From: "scry@example.com"}
+		}, "sendmail.to"},
+		{"bad sendmail recipient", func(c *Config) {
+			c.Notifiers.Sendmail = &SendmailConfig{From: "scry@example.com", To: []string{"not an address"}}
+		}, "sendmail.to[0]"},
 		{"bad smtp recipient", func(c *Config) {
 			c.Notifiers.SMTP = &SMTPConfig{Host: "smtp", Port: 25, From: "scry@example.com", To: []string{"not an address"}}
 		}, "smtp.to[0]"},

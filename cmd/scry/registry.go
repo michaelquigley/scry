@@ -80,6 +80,21 @@ func configuredNotifiers(cfg *config.Config) ([]notify.Destination, error) {
 			Notifier: notifier,
 		})
 	}
+	if cfg.Notifiers.Sendmail != nil {
+		configured := cfg.Notifiers.Sendmail
+		notifier, err := notify.NewSendmail(
+			configured.Path,
+			configured.From,
+			configured.To,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("configure sendmail notifier: %w", err)
+		}
+		destinations = append(destinations, notify.Destination{
+			Name:     "sendmail",
+			Notifier: notifier,
+		})
+	}
 	return destinations, nil
 }
 

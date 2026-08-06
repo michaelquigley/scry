@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+FEATURE: a `sendmail` notifier delivering through the host MTA's sendmail binary as an alternative to direct relay SMTP. The MTA owns queueing and retry beyond the dispatcher's attempts, no mail credential appears in scry's configuration, the binary is verified executable at boot, and each delivery runs under the dispatcher's attempt deadline with non-zero exits surfacing as retryable errors carrying the MTA's output.
+
 FEATURE: the stage-six status surface — a committed OpenAPI contract generating both the ogen server and the dashboard's TypeScript client types, one `GET /api/status` walk of the engine's published snapshot with registry ordering, a rollup, UTC timestamps, and required-nullable history fields, and an embedded single-page dashboard that leads with a rollup banner, sorts trouble first, polls every ten seconds, and holds the last good document behind a stale banner when a poll fails. The status listener serves the API and dashboard from its own handler tree with no single-page fallback, so it answers 404 for the report paths that belong to the ingest listener alone.
 
 FEATURE: the stage-five notification runtime — shared transition formatting, Mattermost bot-account posting through the shared `theharnessbody` client, and unauthenticated house-relay SMTP with opportunistic STARTTLS. Mattermost tokens resolve environment-first with inline fallback, and the posting-only adapter opens no websocket. Every announced transition is persisted before it fans out to an unbounded in-memory FIFO per configured notifier; independent workers apply deadline-authoritative attempts, preserve per-destination order, retry five times over roughly ten minutes, and log a final drop without blocking the serialized engine.

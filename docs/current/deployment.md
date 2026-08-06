@@ -36,6 +36,8 @@ SCRY_MATTERMOST_TOKEN=...
 
 The config names that variable with `token_env: "SCRY_MATTERMOST_TOKEN"`. An inline `token:` is supported as a fallback, but the environment is the production shape.
 
+For mail, prefer the `sendmail` notifier over the direct `smtp` block on a host whose MTA is already configured (the HQ host qualifies): the MTA's own queue carries deliveries through relay outages, and no mail credential enters scry's configuration at all. Scry verifies the configured binary (default `/usr/bin/sendmail`) exists at boot, so a host missing an MTA fails loudly rather than dropping mail silently.
+
 ## The Mattermost Bot
 
 Create a bot account in Mattermost, invite it to the channel that should receive notifications, and take its access token for the environment file. The channel's id goes in `channel_id`. Scry only posts; it opens no websocket and needs no other permissions.
