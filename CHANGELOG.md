@@ -6,7 +6,7 @@ FEATURE: page branding per the metawoo software-products identity pack — an Ar
 
 FEATURE: the configuration gains `estate_name` (default `scry`), carried on the status document as `estate` and displayed as the dashboard's header and browser title — the page names what it watches. An authored blank is invalid configuration.
 
-CHANGE: the dashboard adopts the house visual language — light mode on cool paper, Source Serif 4 for language and Source Code Pro for machine strings (ids, states, timestamps, durations, detail), soft state-colored chips, fonts self-hosted through fontsource so the embedded page loads nothing remote.
+CHANGE: the dashboard adopts the house visual language — light mode on cool paper, the house 120% type ramp, Source Serif 4 for language and Source Code Pro for machine strings (ids, states, timestamps, durations, detail), soft state-colored chips, fonts self-hosted through fontsource so the embedded page loads nothing remote.
 
 CHANGE: every timestamp on the dashboard now carries its age, and every age counts live on a one-second client-side pulse — computed as the daemon's own span plus locally elapsed screen time, so daemon and browser clocks never mix. The header's "as of" age grows visibly between polls and through outages instead of resetting to zero.
 
