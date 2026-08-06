@@ -1,5 +1,5 @@
 import type { Check, CheckState } from '../api/client'
-import { elapsedSince, formatDuration, formatTimestamp } from '../util'
+import { elapsedSince, formatDuration, formatTimestampWithAge } from '../util'
 
 // the API returns registry order; sorting is the render's decision. trouble
 // first, then by id within each state group, so the page answers itself
@@ -45,7 +45,7 @@ export function CheckTable({ checks, generated }: { checks: Check[]; generated: 
             </td>
             <td className="numeric">{formatDuration(elapsedSince(check.since, generated))}</td>
             <td className="numeric">
-              {check.last_transition ? formatTimestamp(check.last_transition) : '—'}
+              {check.last_transition ? formatTimestampWithAge(check.last_transition, generated) : '—'}
             </td>
             <td className="detail">{check.detail || '—'}</td>
           </tr>

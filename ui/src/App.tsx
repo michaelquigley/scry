@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchStatus, type StatusDocument } from './api/client'
 import { CheckTable } from './components/CheckTable'
 import { RollupBanner } from './components/RollupBanner'
-import { formatTimestamp } from './util'
+import { formatTimestampWithAge } from './util'
 
 const pollInterval = 10_000
 
@@ -10,6 +10,9 @@ export default function App() {
   const [status, setStatus] = useState<StatusDocument | null>(null)
   const [stale, setStale] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  // stamped on every poll attempt — success or failure — so the header's age
+  // keeps counting up while the daemon is unreachable and the page is stale.
+  const [polledAt, setPolledAt] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -29,6 +32,7 @@ export default function App() {
       } finally {
         if (!controller.signal.aborted) {
           setLoaded(true)
+          setPolledAt(new Date().toISOString())
         }
       }
     }
@@ -45,7 +49,9 @@ export default function App() {
     <main>
       <header>
         <h1>scry</h1>
-        {status ? <span className="generated">as of {formatTimestamp(status.generated)}</span> : null}
+        {status ? (
+          <span className="generated">as of {formatTimestampWithAge(status.generated, polledAt)}</span>
+        ) : null}
       </header>
 
       {stale ? (

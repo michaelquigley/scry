@@ -2,7 +2,7 @@
 
 The dashboard is a single page built into the binary and served from the status listener's root. It answers one question without a click: is everything okay, and if not, what isn't. There is no router, no navigation, and no charts.
 
-A rollup banner leads. With nothing wrong it reads `all clear` with the check count; otherwise it reads `N late / N failed` and takes the color of the worse state. Below it, every check appears in one table: state chip, name with its id and kind, time in the current state, last transition, and last-result detail. Absent values render as a dash.
+A rollup banner leads. With nothing wrong it reads `all clear` with the check count; otherwise it reads `N late / N failed` and takes the color of the worse state. Below it, every check appears in one table: state chip, name with its id and kind, time in the current state, last transition, and last-result detail. Absent values render as a dash. Every timestamp carries its age — the last-transition column measured against the document's own `generated` stamp (the daemon's arithmetic, immune to browser clock skew), and the header's "as of" stamp measured against the browser's latest poll attempt, so a stale page shows its staleness growing.
 
 Trouble sorts first — failed, then late, then ok — and within a state group alphabetically by id, so the order is stable between polls and the all-green page reads as a scannable registry. The API returns registry order and the page decides how to present it.
 

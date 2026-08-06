@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+CHANGE: every timestamp on the dashboard now carries its age — the last-transition column measured against the document's own generated stamp, and the header's "as of" stamp measured against the browser's latest poll attempt, so a stale page shows its staleness growing.
+
 CHANGE: the dashboard's secondary sort within each state group is now check id ascending (previously `since` descending) — a stable, scannable order between polls, with trouble-first unchanged as the primary.
 
 FEATURE: a `sendmail` notifier delivering through the host MTA's sendmail binary as an alternative to direct relay SMTP. The MTA owns queueing and retry beyond the dispatcher's attempts, no mail credential appears in scry's configuration, the binary is verified executable at boot, and each delivery runs under the dispatcher's attempt deadline with non-zero exits surfacing as retryable errors carrying the MTA's output.
