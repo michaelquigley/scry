@@ -44,7 +44,7 @@ Passive tokens authenticate `GET|POST /report/<check-id>` on that isolated liste
 
 ## Notifiers
 
-Both notification blocks are optional. When present, each announced transition fans out to each configured destination:
+Every notification block is optional. When present, each announced transition fans out to each configured destination:
 
 ```yaml
 notifiers:
@@ -58,6 +58,11 @@ notifiers:
     from: "scry@example.com"
     to:
       - "operator@example.com"
+  sendmail:
+    from: "scry@example.com"
+    to:
+      - "operator@example.com"
+    # path: "/usr/bin/sendmail"   # default
 ```
 
 Mattermost uses a bot account to post into one channel. `url` must be an absolute HTTP or HTTPS server URL, and `channel_id` must be non-empty. The token is resolved from the environment variable named by `token_env`, falling back to an inline `token` value when that variable is unset or empty; environment wins when both are populated. The resolved token must be non-empty at boot. Supplying it through the service environment is the recommended production shape.
@@ -65,6 +70,8 @@ Mattermost uses a bot account to post into one channel. `url` must be an absolut
 SMTP requires a non-empty relay host, a port from 1 through 65535, one valid sender address, and at least one valid recipient address. Display-name forms such as `"Scry <scry@example.com>"` are accepted.
 
 SMTP is intentionally the unauthenticated house-relay shape: there are no credential fields. Scry upgrades with STARTTLS when the relay advertises it and verifies the relay certificate; otherwise it continues on the existing connection. See [Notifications](notifications.md) for delivery and retry behavior.
+
+Sendmail delivers through the host MTA's `sendmail` binary instead of a direct relay, and is usually configured *instead of* `smtp`, not alongside it (both configured means two emails per announcement). It requires one valid sender address and at least one valid recipient; `path` is optional and defaults to `/usr/bin/sendmail`. There are no host, port, or credential fields — the MTA owns transport, queueing, and retry. At boot, scry verifies the binary exists and is executable by its own user; a host without a configured MTA fails loudly at startup. See [Notifications](notifications.md) for delivery behavior and [Deployment](deployment.md) for why HQ prefers this shape.
 
 ## Command surface
 
