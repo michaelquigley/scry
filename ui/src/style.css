@@ -24,6 +24,8 @@
   --failed: #9f1239;
   --failed-soft: rgba(159, 18, 57, 0.1);
 
+  --accent: #0c4a6e;
+
   --font-body: "Source Serif 4 Variable", Georgia, serif;
   --font-mono: "Source Code Pro Variable", "SFMono-Regular", Consolas, monospace;
 }
@@ -134,7 +136,6 @@ h1 {
 
 .checks td {
   padding: 0.7rem 0.75rem;
-  border-bottom: 1px solid var(--hairline);
   vertical-align: top;
 }
 
@@ -188,4 +189,54 @@ h1 {
 .detail {
   font-size: 0.8rem;
   overflow-wrap: anywhere;
+}
+
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.app-footer-brand {
+  --app-footer-logo-height: 16.25px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.app-footer-scry-logo,
+.app-footer-metawoo-logo {
+  width: auto;
+  height: var(--app-footer-logo-height);
+  display: block;
+  flex-shrink: 0;
+}
+
+/* "scry" carries a descender the sibling wordmarks don't, so its tight box
+   holds its baseline at 69.4% where reef/metawoo sit at ~92.5%; this shift
+   levels the baselines at the shared height (computed from font metrics). */
+.app-footer-scry-logo {
+  transform: translateY(3.7px);
+}
+
+.app-footer-separator {
+  color: var(--ink-muted);
+}
+
+.app-footer-link {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+
+.app-footer-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }

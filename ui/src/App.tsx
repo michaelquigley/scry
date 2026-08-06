@@ -82,6 +82,24 @@ export default function App() {
       ) : (
         <p className="placeholder">{loaded ? 'no status available' : 'loading'}</p>
       )}
+
+      <footer className="app-footer">
+        <div className="app-footer-brand">
+          <img className="app-footer-scry-logo" src="/scry-logo.svg" alt="scry" />
+          <span className="app-footer-separator" aria-hidden="true">
+            &middot;
+          </span>
+          <img className="app-footer-metawoo-logo" src="/metawoo-logo.svg" alt="metawoo" />
+        </div>
+        <a
+          className="app-footer-link"
+          href="https://github.com/michaelquigley/scry"
+          target="_blank"
+          rel="noreferrer"
+        >
+          github.com/michaelquigley/scry
+        </a>
+      </footer>
     </main>
   )
 }
