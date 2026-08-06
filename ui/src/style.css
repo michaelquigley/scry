@@ -1,19 +1,40 @@
-:root {
-  color: #d7d7dc;
-  background: #111116;
-  font-family: system-ui, sans-serif;
-  font-size: 15px;
+@import "@fontsource-variable/source-serif-4";
+@import "@fontsource-variable/source-code-pro";
 
-  --ok: #4ea87a;
-  --late: #cf9b45;
-  --failed: #cf5a5a;
-  --muted: #86868f;
-  --line: #26262f;
-  --panel: #191920;
+/* scry -- the estate's status page in the house language: light paper,
+   serif-for-language / mono-for-machine-strings, state color speaking
+   softly until something is wrong. cool paper shared with reef. */
+
+:root {
+  color-scheme: light;
+  font-size: 16px;
+
+  --page-bg: #f8fafa;
+  --panel: #ffffff;
+  --ink: #16211f;
+  --ink-soft: #3c4a47;
+  --ink-muted: #6d7c79;
+  --border: rgba(109, 124, 121, 0.4);
+  --hairline: rgba(109, 124, 121, 0.24);
+
+  --ok: #157a52;
+  --ok-soft: rgba(21, 122, 82, 0.12);
+  --late: #b45309;
+  --late-soft: rgba(180, 83, 9, 0.13);
+  --failed: #9f1239;
+  --failed-soft: rgba(159, 18, 57, 0.1);
+
+  --font-body: "Source Serif 4 Variable", Georgia, serif;
+  --font-mono: "Source Code Pro Variable", "SFMono-Regular", Consolas, monospace;
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--ink);
+  line-height: 1.55;
+  background: var(--page-bg);
 }
 
 main {
@@ -32,15 +53,16 @@ header {
 
 h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 .generated,
 .placeholder {
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .stale {
@@ -48,13 +70,14 @@ h1 {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--late);
   border-radius: 6px;
+  background: var(--late-soft);
   color: var(--late);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .rollup {
   padding: 1.1rem 1.25rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--hairline);
   border-left-width: 4px;
   border-radius: 6px;
   background: var(--panel);
@@ -78,14 +101,15 @@ h1 {
 }
 
 .rollup-empty {
-  border-left-color: var(--muted);
-  color: var(--muted);
+  border-left-color: var(--ink-muted);
+  color: var(--ink-muted);
 }
 
 .rollup-detail {
   margin-left: 0.75rem;
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
   font-weight: 400;
 }
 
@@ -98,18 +122,19 @@ h1 {
 
 .checks th {
   padding: 0 0.75rem 0.6rem;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
 }
 
 .checks td {
   padding: 0.7rem 0.75rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hairline);
   vertical-align: top;
 }
 
@@ -117,21 +142,25 @@ h1 {
   display: inline-block;
   min-width: 4rem;
   padding: 0.15rem 0.5rem;
-  border: 1px solid currentcolor;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
   text-align: center;
 }
 
 .chip-ok {
+  background: var(--ok-soft);
   color: var(--ok);
 }
 
 .chip-late {
+  background: var(--late-soft);
   color: var(--late);
 }
 
 .chip-failed {
+  background: var(--failed-soft);
   color: var(--failed);
 }
 
@@ -142,18 +171,21 @@ h1 {
 .check-id,
 .numeric,
 .detail {
-  color: var(--muted);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
 }
 
 .check-id {
   margin-top: 0.15rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .numeric {
+  font-size: 0.8rem;
   white-space: nowrap;
 }
 
 .detail {
+  font-size: 0.8rem;
   overflow-wrap: anywhere;
 }

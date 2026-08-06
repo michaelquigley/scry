@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+CHANGE: the dashboard adopts the house visual language — light mode on cool paper, Source Serif 4 for language and Source Code Pro for machine strings (ids, states, timestamps, durations, detail), soft state-colored chips, fonts self-hosted through fontsource so the embedded page loads nothing remote.
+
 CHANGE: every timestamp on the dashboard now carries its age — the last-transition column measured against the document's own generated stamp, and the header's "as of" stamp measured against the browser's latest poll attempt, so a stale page shows its staleness growing.
 
 CHANGE: the dashboard's secondary sort within each state group is now check id ascending (previously `since` descending) — a stable, scannable order between polls, with trouble-first unchanged as the primary.
