@@ -18,6 +18,7 @@ func integer(value int) *int {
 
 func validConfig() *Config {
 	return &Config{
+		EstateName:   "test estate",
 		StatusListen: DefaultStatusListen,
 		IngestListen: DefaultIngestListen,
 		StateFile:    "/tmp/scry-state.json",
@@ -159,6 +160,7 @@ func TestValidateRejections(t *testing.T) {
 		{"empty status listen", func(c *Config) { c.StatusListen = "" }, "status_listen"},
 		{"nonnumeric status port", func(c *Config) { c.StatusListen = "127.0.0.1:http" }, "numeric port"},
 		{"public ingest", func(c *Config) { c.IngestListen = "0.0.0.0:8421" }, "loopback"},
+		{"empty estate name", func(c *Config) { c.EstateName = "  " }, "estate_name"},
 		{"empty state file", func(c *Config) { c.StateFile = "" }, "state_file"},
 		{"zero default interval", func(c *Config) { c.Defaults.Interval = 0 }, "defaults.interval"},
 		{"zero default timeout", func(c *Config) { c.Defaults.Timeout = 0 }, "defaults.timeout"},

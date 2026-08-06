@@ -51,11 +51,16 @@ export default function App() {
   }, [])
 
   const ageOffset = receivedAt === null ? 0 : Math.max(0, now - receivedAt)
+  const estate = status?.estate ?? 'scry'
+
+  useEffect(() => {
+    document.title = estate
+  }, [estate])
 
   return (
     <main>
       <header>
-        <h1>scry</h1>
+        <h1>{estate}</h1>
         {status ? (
           <span className="generated">
             as of {formatTimestamp(status.generated)} · {formatDuration(ageOffset)} ago

@@ -16,6 +16,7 @@ The first two file layers are optional. A path explicitly supplied with `--confi
 Compiled defaults:
 
 ```yaml
+estate_name: "scry"
 status_listen: "0.0.0.0:8420"
 ingest_listen: "127.0.0.1:8421"
 state_file: "~/.local/state/scry/state.json"
@@ -26,7 +27,7 @@ defaults:
   harden_after: 3
 ```
 
-`state_file` follows `$XDG_STATE_HOME` when set. Duration values use Go duration strings such as `30s`, `5m`, and `24h`.
+`estate_name` is the display name of the monitored estate — it leads the status document and the dashboard header, defaults to `scry`, and an authored blank is invalid. `state_file` follows `$XDG_STATE_HOME` when set. Duration values use Go duration strings such as `30s`, `5m`, and `24h`.
 
 ## Registry
 

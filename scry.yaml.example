@@ -1,3 +1,4 @@
+estate_name: "example estate"
 status_listen: "0.0.0.0:8420"
 ingest_listen: "127.0.0.1:8421"
 state_file: "/var/lib/scry/state.json"

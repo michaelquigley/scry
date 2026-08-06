@@ -6,6 +6,7 @@ The status listener binds `status_listen` and serves two things: the JSON status
 
 ```json
 {
+  "estate": "hq",
   "generated": "2026-07-29T14:59:04Z",
   "rollup": { "ok": 0, "late": 0, "failed": 2 },
   "checks": [
@@ -23,7 +24,7 @@ The status listener binds `status_listen` and serves two things: the JSON status
 }
 ```
 
-`generated` is stamped from the injected clock at the moment the document is rendered, and every timestamp leaves as UTC regardless of the daemon's local zone. `rollup` counts each check exactly once. `checks` is the engine's published snapshot in registry order: sorting is a render decision, not a contract one.
+`estate` is the configured display name of the monitored estate. `generated` is stamped from the injected clock at the moment the document is rendered, and every timestamp leaves as UTC regardless of the daemon's local zone. `rollup` counts each check exactly once. `checks` is the engine's published snapshot in registry order: sorting is a render decision, not a contract one.
 
 Three fields are declared required and nullable, so a consumer reads one shape whatever the check's history: `last_transition` is null until a check's first real transition, since registration is not one; `last_seen` is null for active checks; `detail` is null until a result or report arrives. They are present as explicit nulls rather than omitted.
 

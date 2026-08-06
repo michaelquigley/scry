@@ -26,6 +26,7 @@ var checkIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // Config is scry's complete daemon configuration.
 type Config struct {
+	EstateName   string         `dd:"estate_name"`
 	StatusListen string         `dd:"status_listen"`
 	IngestListen string         `dd:"ingest_listen"`
 	StateFile    string         `dd:"state_file"`
@@ -110,6 +111,7 @@ type TCPConfig struct {
 // NewConfig returns the compiled bottom layer of the config cascade.
 func NewConfig() *Config {
 	return &Config{
+		EstateName:   "scry",
 		StatusListen: DefaultStatusListen,
 		IngestListen: DefaultIngestListen,
 		StateFile:    defaultStatePath(),
@@ -151,6 +153,9 @@ func (cfg *Config) Validate() error {
 	}
 	if err := validateListen("ingest_listen", cfg.IngestListen, true); err != nil {
 		return err
+	}
+	if strings.TrimSpace(cfg.EstateName) == "" {
+		return fmt.Errorf("estate_name is required")
 	}
 	if strings.TrimSpace(cfg.StateFile) == "" {
 		return fmt.Errorf("state_file is required")

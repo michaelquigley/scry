@@ -337,11 +337,18 @@ func (s *State) UnmarshalText(data []byte) error {
 // One snapshot of the registry, stamped when it was rendered.
 // Ref: #/components/schemas/status
 type Status struct {
+	// The display name of the monitored estate.
+	Estate string `json:"estate"`
 	// When the daemon rendered this document.
 	Generated time.Time `json:"generated"`
 	Rollup    Rollup    `json:"rollup"`
 	// Every check in registry order; sorting is a render decision.
 	Checks []Check `json:"checks"`
+}
+
+// GetEstate returns the value of Estate.
+func (s *Status) GetEstate() string {
+	return s.Estate
 }
 
 // GetGenerated returns the value of Generated.
@@ -357,6 +364,11 @@ func (s *Status) GetRollup() Rollup {
 // GetChecks returns the value of Checks.
 func (s *Status) GetChecks() []Check {
 	return s.Checks
+}
+
+// SetEstate sets the value of Estate.
+func (s *Status) SetEstate(val string) {
+	s.Estate = val
 }
 
 // SetGenerated sets the value of Generated.

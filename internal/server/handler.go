@@ -20,16 +20,16 @@ type Handler struct {
 }
 
 // NewHandler builds the status handler over a published snapshot reader.
-func NewHandler(reader Reader, clock engine.Clock) (*Handler, error) {
+func NewHandler(reader Reader, clock engine.Clock, estate string) (*Handler, error) {
 	dist, err := fs.Sub(ui.FS, "dist")
 	if err != nil {
 		return nil, fmt.Errorf("open embedded dashboard: %w", err)
 	}
-	return newHandler(reader, clock, dist)
+	return newHandler(reader, clock, estate, dist)
 }
 
-func newHandler(reader Reader, clock engine.Clock, dist fs.FS) (*Handler, error) {
-	status, err := newStatusHandler(reader, clock)
+func newHandler(reader Reader, clock engine.Clock, estate string, dist fs.FS) (*Handler, error) {
+	status, err := newStatusHandler(reader, clock, estate)
 	if err != nil {
 		return nil, err
 	}

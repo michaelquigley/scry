@@ -534,6 +534,10 @@ func (s *Status) Encode(e *jx.Encoder) {
 // encodeFields encodes fields.
 func (s *Status) encodeFields(e *jx.Encoder) {
 	{
+		e.FieldStart("estate")
+		e.Str(s.Estate)
+	}
+	{
 		e.FieldStart("generated")
 		json.EncodeDateTime(e, s.Generated)
 	}
@@ -551,10 +555,11 @@ func (s *Status) encodeFields(e *jx.Encoder) {
 	}
 }
 
-var jsonFieldsNameOfStatus = [3]string{
-	0: "generated",
-	1: "rollup",
-	2: "checks",
+var jsonFieldsNameOfStatus = [4]string{
+	0: "estate",
+	1: "generated",
+	2: "rollup",
+	3: "checks",
 }
 
 // Decode decodes Status from json.
@@ -566,8 +571,20 @@ func (s *Status) Decode(d *jx.Decoder) error {
 
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
 		switch string(k) {
-		case "generated":
+		case "estate":
 			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				v, err := d.Str()
+				s.Estate = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"estate\"")
+			}
+		case "generated":
+			requiredBitSet[0] |= 1 << 1
 			if err := func() error {
 				v, err := json.DecodeDateTime(d)
 				s.Generated = v
@@ -579,7 +596,7 @@ func (s *Status) Decode(d *jx.Decoder) error {
 				return errors.Wrap(err, "decode field \"generated\"")
 			}
 		case "rollup":
-			requiredBitSet[0] |= 1 << 1
+			requiredBitSet[0] |= 1 << 2
 			if err := func() error {
 				if err := s.Rollup.Decode(d); err != nil {
 					return err
@@ -589,7 +606,7 @@ func (s *Status) Decode(d *jx.Decoder) error {
 				return errors.Wrap(err, "decode field \"rollup\"")
 			}
 		case "checks":
-			requiredBitSet[0] |= 1 << 2
+			requiredBitSet[0] |= 1 << 3
 			if err := func() error {
 				s.Checks = make([]Check, 0)
 				if err := d.Arr(func(d *jx.Decoder) error {
@@ -616,7 +633,7 @@ func (s *Status) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00000111,
+		0b00001111,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.

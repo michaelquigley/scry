@@ -27,6 +27,8 @@ export interface components {
     schemas: {
         /** @description one snapshot of the registry, stamped when it was rendered */
         status: {
+            /** @description the display name of the monitored estate */
+            estate: string;
             /**
              * Format: date-time
              * @description when the daemon rendered this document

@@ -32,8 +32,11 @@ components:
     status:
       type: object
       description: one snapshot of the registry, stamped when it was rendered
-      required: [generated, rollup, checks]
+      required: [estate, generated, rollup, checks]
       properties:
+        estate:
+          type: string
+          description: the display name of the monitored estate
         generated:
           type: string
           format: date-time

@@ -67,7 +67,7 @@ func estateSnapshot() engine.Snapshot {
 
 func serveStatus(t *testing.T, snapshot engine.Snapshot) *httptest.ResponseRecorder {
 	t.Helper()
-	handler, err := newHandler(staticReader{snapshot: snapshot}, fixedClock(generatedAt), dashboardFS())
+	handler, err := newHandler(staticReader{snapshot: snapshot}, fixedClock(generatedAt), "test estate", dashboardFS())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +93,9 @@ func decodeStatus(t *testing.T, response *httptest.ResponseRecorder) api.Status 
 func TestStatusWalkRendersEveryCheckInRegistryOrder(t *testing.T) {
 	document := decodeStatus(t, serveStatus(t, estateSnapshot()))
 
+	if document.Estate != "test estate" {
+		t.Fatalf("estate: %q", document.Estate)
+	}
 	if !document.Generated.Equal(generatedAt) {
 		t.Fatalf("generated: %s", document.Generated)
 	}
@@ -185,10 +188,10 @@ func TestTimestampsRenderInUTC(t *testing.T) {
 }
 
 func TestStatusHandlerRequiresItsCollaborators(t *testing.T) {
-	if _, err := newStatusHandler(nil, fixedClock(generatedAt)); err == nil {
+	if _, err := newStatusHandler(nil, fixedClock(generatedAt), "test estate"); err == nil {
 		t.Fatal("a nil reader should be rejected")
 	}
-	if _, err := newStatusHandler(staticReader{}, nil); err == nil {
+	if _, err := newStatusHandler(staticReader{}, nil, "test estate"); err == nil {
 		t.Fatal("a nil clock should be rejected")
 	}
 }

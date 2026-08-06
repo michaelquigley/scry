@@ -19,22 +19,27 @@ type Reader interface {
 type statusHandler struct {
 	reader Reader
 	clock  engine.Clock
+	estate string
 }
 
-func newStatusHandler(reader Reader, clock engine.Clock) (*statusHandler, error) {
+func newStatusHandler(reader Reader, clock engine.Clock, estate string) (*statusHandler, error) {
 	if reader == nil {
 		return nil, fmt.Errorf("snapshot reader is required")
 	}
 	if clock == nil {
 		return nil, fmt.Errorf("clock is required")
 	}
-	return &statusHandler{reader: reader, clock: clock}, nil
+	if estate == "" {
+		return nil, fmt.Errorf("estate name is required")
+	}
+	return &statusHandler{reader: reader, clock: clock, estate: estate}, nil
 }
 
 // GetStatus walks the published snapshot into the contract's status document.
 func (handler *statusHandler) GetStatus(_ context.Context) (*api.Status, error) {
 	snapshot := handler.reader.Snapshot()
 	document := &api.Status{
+		Estate:    handler.estate,
 		Generated: handler.clock().UTC(),
 		Checks:    make([]api.Check, len(snapshot.Checks)),
 	}
