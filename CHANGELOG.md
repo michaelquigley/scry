@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-FEATURE: page branding per the metawoo software-products identity pack — an Archivo Black scry wordmark baked to SVG paths in scry's sky-900 accent, the house footer pairing it with the metawoo mark and a repository link, and the spec favicon set (rounded accent tile with a paper-white "s": SVG, ico, PNGs, full-bleed apple-touch). All assets ship in the embedded bundle; the page still loads nothing remote.
+FEATURE: page branding per the metawoo software-products identity pack — an Archivo Black scry wordmark baked to SVG paths in scry's sky-900 accent, the house footer pairing it with the metawoo mark and a repository link, and a favicon set (a scrying-orb glyph in the accent with a paper gleam — scry's one sanctioned divergence from the pack's letter-tile spec: SVG, ico, PNGs, apple-touch). All assets ship in the embedded bundle; the page still loads nothing remote.
 
 FEATURE: the configuration gains `estate_name` (default `scry`), carried on the status document as `estate` and displayed as the dashboard's header and browser title — the page names what it watches. An authored blank is invalid configuration.
 
