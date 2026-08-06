@@ -4,7 +4,7 @@ The dashboard is a single page built into the binary and served from the status 
 
 A rollup banner leads. With nothing wrong it reads `all clear` with the check count; otherwise it reads `N late / N failed` and takes the color of the worse state. Below it, every check appears in one table: state chip, name with its id and kind, time in the current state, last transition, and last-result detail. Absent values render as a dash.
 
-Trouble sorts first — failed, then late, then ok — and within a state group by `since` descending, so the newest change leads. The API returns registry order and the page decides how to present it.
+Trouble sorts first — failed, then late, then ok — and within a state group alphabetically by id, so the order is stable between polls and the all-green page reads as a scannable registry. The API returns registry order and the page decides how to present it.
 
 Time in state is measured against the document's own `generated` stamp rather than the browser's clock, so the page reports the daemon's arithmetic. Timestamps are rendered in the viewer's local zone.
 

@@ -2,8 +2,8 @@ import type { Check, CheckState } from '../api/client'
 import { elapsedSince, formatDuration, formatTimestamp } from '../util'
 
 // the API returns registry order; sorting is the render's decision. trouble
-// first, then by `since` descending, so the newest change leads its state group
-// and the page answers itself without a scroll.
+// first, then by id within each state group, so the page answers itself
+// without a scroll and holds a stable, scannable order between polls.
 const stateOrder: Record<CheckState, number> = { failed: 0, late: 1, ok: 2 }
 
 function troubleFirst(checks: Check[]): Check[] {
@@ -12,7 +12,7 @@ function troubleFirst(checks: Check[]): Check[] {
     if (byState !== 0) {
       return byState
     }
-    return Date.parse(right.since) - Date.parse(left.since)
+    return left.id.localeCompare(right.id)
   })
 }
 
