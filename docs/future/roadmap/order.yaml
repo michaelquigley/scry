@@ -3,3 +3,5 @@ horizon:
   - mcp-status-reader.md
   - zrok-native-ingest-listener.md
   - embedding-sdk.md
+building:
+  - state-history.md
