@@ -21,8 +21,8 @@ type schedulerRepository struct {
 	saved chan struct{}
 }
 
-func (repository *schedulerRepository) Save(snapshot state.Snapshot) error {
-	if err := repository.memoryRepository.Save(snapshot); err != nil {
+func (repository *schedulerRepository) Save(snapshot state.Snapshot, at time.Time) error {
+	if err := repository.memoryRepository.Save(snapshot, at); err != nil {
 		return err
 	}
 	repository.saved <- struct{}{}
@@ -30,7 +30,7 @@ func (repository *schedulerRepository) Save(snapshot state.Snapshot) error {
 }
 
 func TestNewSchedulerValidatesChecksAndJitter(t *testing.T) {
-	engine, err := New(nil, &memoryRepository{}, (&fakeClock{now: engineEpoch}).Now, nil)
+	engine, err := New(nil, &memoryRepository{}, &fakeLedger{}, (&fakeClock{now: engineEpoch}).Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestEvaluateProbeTurnsLiveDeadlineIntoFailure(t *testing.T) {
 func TestSchedulerDeliversInitialProbeThroughEngine(t *testing.T) {
 	clock := &fakeClock{now: engineEpoch}
 	repository := &schedulerRepository{saved: make(chan struct{}, 2)}
-	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, clock.Now, nil)
+	engine, err := New([]model.Check{engineActiveCheck("web")}, repository, &fakeLedger{}, clock.Now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

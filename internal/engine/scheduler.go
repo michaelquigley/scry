@@ -14,7 +14,12 @@ import (
 
 const (
 	passiveSweepInterval = 15 * time.Second
-	dirtyFlushInterval   = 60 * time.Second
+	// every tick persists, dirty or not: the periodic save is what keeps the
+	// state file's saved stamp a live bound on the daemon's death, which is
+	// what bounds the unwatched gap history opens after an unclean stop.
+	// making it conditional again would widen every crash gap to the last
+	// transition.
+	livenessFlushInterval = 60 * time.Second
 )
 
 // Jitter chooses one check's initial offset within its interval.
@@ -98,7 +103,8 @@ func NewScheduler(engine *Engine, checks []ActiveCheck, jitter Jitter) (*Schedul
 	return scheduler, nil
 }
 
-// Run schedules probes, passive sweeps, and dirty-state flushes until ctx ends.
+// Run schedules probes, passive sweeps, and unconditional state flushes until
+// ctx ends.
 func (scheduler *Scheduler) Run(ctx context.Context) error {
 	workersCtx, cancelWorkers := context.WithCancel(ctx)
 	results := make(chan probeResult)
@@ -112,7 +118,7 @@ func (scheduler *Scheduler) Run(ctx context.Context) error {
 	}
 
 	sweepTicker := time.NewTicker(passiveSweepInterval)
-	flushTicker := time.NewTicker(dirtyFlushInterval)
+	flushTicker := time.NewTicker(livenessFlushInterval)
 	defer sweepTicker.Stop()
 	defer flushTicker.Stop()
 	defer workers.Wait()

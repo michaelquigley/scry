@@ -39,14 +39,18 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		},
 	}
 
-	if err := store.Save(snapshot); err != nil {
+	savedAt := stateEpoch.Add(2 * time.Hour)
+	if err := store.Save(snapshot, savedAt); err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := store.Load()
+	loaded, saved, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	requireSnapshotEqual(t, loaded, snapshot)
+	if !saved.Equal(savedAt) {
+		t.Fatalf("saved: %v, want %v", saved, savedAt)
+	}
 
 	info, err := os.Stat(path)
 	if err != nil {
@@ -59,12 +63,67 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 
 func TestLoadMissingIsFirstBoot(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "missing", "state.json"))
-	snapshot, err := store.Load()
+	snapshot, saved, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(snapshot) != 0 {
 		t.Fatalf("snapshot: %+v", snapshot)
+	}
+	if !saved.IsZero() {
+		t.Fatalf("saved: %v, want zero", saved)
+	}
+}
+
+func TestLoadPreStampFileHasNoSavedBound(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	content := `{
+  "v": 1,
+  "checks": {
+    "web": {
+      "kind": "http",
+      "state": "ok",
+      "since": "2026-07-27T15:00:00-04:00",
+      "consecutive_fails": 0
+    }
+  }
+}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, saved, err := NewStore(path).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot) != 1 {
+		t.Fatalf("snapshot: %+v", snapshot)
+	}
+	if !saved.IsZero() {
+		t.Fatalf("saved: %v, want zero", saved)
+	}
+}
+
+func TestSaveWithoutAStampLeavesTheBoundAlone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	store := NewStore(path)
+	snapshot := Snapshot{
+		"web": {
+			Kind:   model.KindHTTP,
+			Record: model.Record{State: model.StateOK, Since: stateEpoch},
+		},
+	}
+	if err := store.Save(snapshot, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "saved") {
+		t.Fatalf("zero stamp reached the file: %s", data)
+	}
+	if _, saved, err := store.Load(); err != nil || !saved.IsZero() {
+		t.Fatalf("saved: %v, error %v", saved, err)
 	}
 }
 
@@ -87,7 +146,7 @@ func TestLoadRejectsWholeFileFailures(t *testing.T) {
 			if err := os.WriteFile(path, []byte(test.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			_, err := NewStore(path).Load()
+			_, _, err := NewStore(path).Load()
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error: %v, want %q", err, test.want)
 			}
@@ -135,7 +194,7 @@ func TestLoadRejectsInvalidRecord(t *testing.T) {
 			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			_, err := NewStore(path).Load()
+			_, _, err := NewStore(path).Load()
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error: %v, want %q", err, test.want)
 			}
@@ -152,7 +211,7 @@ func TestSaveRejectsInvalidSnapshot(t *testing.T) {
 				State: model.StateOK,
 			},
 		},
-	})
+	}, stateEpoch)
 	if err == nil || !strings.Contains(err.Error(), "since is required") {
 		t.Fatalf("error: %v", err)
 	}

@@ -22,6 +22,7 @@ func validConfig() *Config {
 		StatusListen: DefaultStatusListen,
 		IngestListen: DefaultIngestListen,
 		StateFile:    "/tmp/scry-state.json",
+		HistoryDir:   "/tmp/scry-history",
 		Defaults: Defaults{
 			Interval:    time.Minute,
 			Timeout:     10 * time.Second,
@@ -60,6 +61,9 @@ func TestNewConfig(t *testing.T) {
 	if want := filepath.Join(stateHome, "scry", "state.json"); cfg.StateFile != want {
 		t.Errorf("state file: %q, want %q", cfg.StateFile, want)
 	}
+	if want := filepath.Join(stateHome, "scry", "history"); cfg.HistoryDir != want {
+		t.Errorf("history dir: %q, want %q", cfg.HistoryDir, want)
+	}
 	if cfg.Defaults.Interval != time.Minute || cfg.Defaults.Timeout != 10*time.Second {
 		t.Errorf("timing defaults: %+v", cfg.Defaults)
 	}
@@ -96,6 +100,7 @@ checks:
 	writeConfig(t, explicitPath, `
 status_listen: "127.0.0.1:9002"
 ingest_listen: "localhost:9003"
+history_dir: "/var/lib/scry/history"
 `)
 
 	cfg, err := Load(explicitPath)
@@ -107,6 +112,9 @@ ingest_listen: "localhost:9003"
 	}
 	if cfg.IngestListen != "localhost:9003" {
 		t.Errorf("ingest cascade: %q", cfg.IngestListen)
+	}
+	if cfg.HistoryDir != "/var/lib/scry/history" {
+		t.Errorf("history dir cascade: %q", cfg.HistoryDir)
 	}
 	if cfg.Defaults.Interval != 2*time.Minute || cfg.Defaults.Timeout != 20*time.Second {
 		t.Errorf("duration binding: %+v", cfg.Defaults)
@@ -162,6 +170,7 @@ func TestValidateRejections(t *testing.T) {
 		{"public ingest", func(c *Config) { c.IngestListen = "0.0.0.0:8421" }, "loopback"},
 		{"empty estate name", func(c *Config) { c.EstateName = "  " }, "estate_name"},
 		{"empty state file", func(c *Config) { c.StateFile = "" }, "state_file"},
+		{"empty history dir", func(c *Config) { c.HistoryDir = "" }, "history_dir"},
 		{"zero default interval", func(c *Config) { c.Defaults.Interval = 0 }, "defaults.interval"},
 		{"zero default timeout", func(c *Config) { c.Defaults.Timeout = 0 }, "defaults.timeout"},
 		{"low default fail after", func(c *Config) { c.Defaults.FailAfter = 1 }, "defaults.fail_after"},

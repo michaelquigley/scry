@@ -407,7 +407,7 @@ func TestWindowFailsOnMalformedLine(t *testing.T) {
 	}
 }
 
-func TestPruneRetiresOneName(t *testing.T) {
+func TestPruneRetiresOneCheckID(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
 	older := time.Date(2025, 6, 1, 0, 0, 0, 0, time.Local)
@@ -478,9 +478,9 @@ func TestPruneRefusesMalformedLedger(t *testing.T) {
 	}
 }
 
-func TestPruneRequiresAName(t *testing.T) {
+func TestPruneRequiresACheckID(t *testing.T) {
 	if _, err := NewStore(t.TempDir()).Prune(""); err == nil {
-		t.Fatal("empty name accepted")
+		t.Fatal("empty check id accepted")
 	}
 }
 

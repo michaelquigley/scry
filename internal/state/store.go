@@ -43,40 +43,49 @@ func NewStore(path string) *Store {
 	return &Store{path: path}
 }
 
-// Load reads the whole state file. a missing file is an empty first boot.
-func (store *Store) Load() (Snapshot, error) {
+// Load reads the whole state file, returning the instant it was last saved.
+// a missing file is an empty first boot, and a zero stamp is a file written
+// before the stamp existed. both leave the saved bound unclaimed.
+func (store *Store) Load() (Snapshot, time.Time, error) {
 	data, err := os.ReadFile(store.path)
 	if errors.Is(err, os.ErrNotExist) {
-		return Snapshot{}, nil
+		return Snapshot{}, time.Time{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read state file %q: %w", store.path, err)
+		return nil, time.Time{}, fmt.Errorf("read state file %q: %w", store.path, err)
 	}
 
 	var disk diskFile
 	if err := dd.BindJSON(&disk, data, dd.Strict()); err != nil {
-		return nil, fmt.Errorf("parse state file %q: %w", store.path, err)
+		return nil, time.Time{}, fmt.Errorf("parse state file %q: %w", store.path, err)
 	}
 	if disk.Version != fileVersion {
-		return nil, fmt.Errorf("state file %q: unsupported version %d", store.path, disk.Version)
+		return nil, time.Time{}, fmt.Errorf("state file %q: unsupported version %d", store.path, disk.Version)
 	}
 
 	snapshot := make(Snapshot, len(disk.Checks))
 	for id, persisted := range disk.Checks {
 		if err := persisted.validate(id); err != nil {
-			return nil, fmt.Errorf("state file %q: %w", store.path, err)
+			return nil, time.Time{}, fmt.Errorf("state file %q: %w", store.path, err)
 		}
 		entry := persisted.entry()
 		if err := validateEntry(id, entry); err != nil {
-			return nil, fmt.Errorf("state file %q: %w", store.path, err)
+			return nil, time.Time{}, fmt.Errorf("state file %q: %w", store.path, err)
 		}
 		snapshot[id] = entry
 	}
-	return snapshot, nil
+	saved := time.Time{}
+	if disk.Saved != nil {
+		saved = *disk.Saved
+	}
+	return snapshot, saved, nil
 }
 
-// Save writes the whole snapshot through a same-directory temporary file.
-func (store *Store) Save(snapshot Snapshot) error {
+// Save writes the whole snapshot through a same-directory temporary file,
+// stamped with at. the stamp arrives through the seam rather than from a
+// clock the store reads for itself; a zero at writes no stamp at all, which
+// is how a caller with no liveness claim to make leaves the bound alone.
+func (store *Store) Save(snapshot Snapshot, at time.Time) error {
 	for id, entry := range snapshot {
 		if err := validateEntry(id, entry); err != nil {
 			return fmt.Errorf("write state file %q: %w", store.path, err)
@@ -86,6 +95,10 @@ func (store *Store) Save(snapshot Snapshot) error {
 	disk := diskFile{
 		Version: fileVersion,
 		Checks:  make(map[string]diskRecord, len(snapshot)),
+	}
+	if !at.IsZero() {
+		saved := at
+		disk.Saved = &saved
 	}
 	for id, entry := range snapshot {
 		disk.Checks[id] = newDiskRecord(entry)
@@ -141,8 +154,12 @@ func (store *Store) Save(snapshot Snapshot) error {
 	return nil
 }
 
+// diskFile carries saved as an additive optional field: a file written
+// before the stamp existed still binds, and history's gap closure reads the
+// absence as "no liveness evidence here".
 type diskFile struct {
 	Version int                   `dd:"v,+required"`
+	Saved   *time.Time            `dd:"saved"`
 	Checks  map[string]diskRecord `dd:"checks,+required"`
 }
 

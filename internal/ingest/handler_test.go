@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/michaelquigley/scry/internal/engine"
+	"github.com/michaelquigley/scry/internal/history"
 	"github.com/michaelquigley/scry/internal/model"
 	"github.com/michaelquigley/scry/internal/state"
 )
@@ -260,13 +261,13 @@ type engineRepository struct {
 	saves    int
 }
 
-func (repository *engineRepository) Load() (state.Snapshot, error) {
+func (repository *engineRepository) Load() (state.Snapshot, time.Time, error) {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
-	return repository.snapshot.Clone(), nil
+	return repository.snapshot.Clone(), time.Time{}, nil
 }
 
-func (repository *engineRepository) Save(snapshot state.Snapshot) error {
+func (repository *engineRepository) Save(snapshot state.Snapshot, _ time.Time) error {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
 	repository.snapshot = snapshot.Clone()
@@ -291,7 +292,7 @@ func TestNoContentMeansReportWasDurablyRecorded(t *testing.T) {
 		Grace:       2 * time.Hour,
 		HardenAfter: 3,
 	}
-	stateEngine, err := engine.New([]model.Check{check}, repository, func() time.Time { return at }, nil)
+	stateEngine, err := engine.New([]model.Check{check}, repository, history.NewStore(t.TempDir()), func() time.Time { return at }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

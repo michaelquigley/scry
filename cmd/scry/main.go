@@ -14,6 +14,7 @@ import (
 	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/scry/internal/config"
 	"github.com/michaelquigley/scry/internal/engine"
+	"github.com/michaelquigley/scry/internal/history"
 	"github.com/michaelquigley/scry/internal/ingest"
 	"github.com/michaelquigley/scry/internal/notify"
 	"github.com/michaelquigley/scry/internal/server"
@@ -50,10 +51,11 @@ func run(_ *cobra.Command, _ []string) {
 	}
 
 	dl.Debugf(
-		"config: status_listen='%s' ingest_listen='%s' state_file='%s' checks='%d'",
+		"config: status_listen='%s' ingest_listen='%s' state_file='%s' history_dir='%s' checks='%d'",
 		cfg.StatusListen,
 		cfg.IngestListen,
 		cfg.StateFile,
+		cfg.HistoryDir,
 		len(cfg.Checks),
 	)
 
@@ -74,7 +76,8 @@ func runDaemon(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("initialize notifier dispatcher: %w", err)
 	}
 	stateStore := state.NewStore(cfg.StateFile)
-	stateEngine, err := engine.New(configuredChecks(cfg), stateStore, time.Now, dispatcher)
+	historyStore := history.NewStore(cfg.HistoryDir)
+	stateEngine, err := engine.New(configuredChecks(cfg), stateStore, historyStore, time.Now, dispatcher)
 	if err != nil {
 		return fmt.Errorf("initialize engine: %w", err)
 	}

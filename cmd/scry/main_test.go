@@ -11,8 +11,10 @@ import (
 )
 
 func TestRunDaemonStopsCleanlyWithItsContext(t *testing.T) {
+	root := t.TempDir()
 	cfg := config.NewConfig()
-	cfg.StateFile = filepath.Join(t.TempDir(), "state.json")
+	cfg.StateFile = filepath.Join(root, "state.json")
+	cfg.HistoryDir = filepath.Join(root, "history")
 	cfg.IngestListen = "127.0.0.1:0"
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

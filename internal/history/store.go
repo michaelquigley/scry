@@ -225,14 +225,14 @@ func (store *Store) Window(from, to time.Time) (Window, error) {
 	return window, nil
 }
 
-// Prune removes every transition event recorded under name; the estate-scoped
-// lifecycle events are untouched. it is an offline operator command run
-// against a stopped daemon, and it strict-reads the whole ledger before
-// touching any of it — curation for a healthy ledger, never a corruption
-// remedy.
-func (store *Store) Prune(name string) (int, error) {
-	if name == "" {
-		return 0, fmt.Errorf("check name is required")
+// Prune removes every transition event recorded under one check id; the
+// estate-scoped lifecycle events are untouched. it is an offline operator
+// command run against a stopped daemon, and it strict-reads the whole ledger
+// before touching any of it — curation for a healthy ledger, never a
+// corruption remedy.
+func (store *Store) Prune(id string) (int, error) {
+	if id == "" {
+		return 0, fmt.Errorf("check id is required")
 	}
 	names, err := store.segments()
 	if err != nil {
@@ -251,7 +251,7 @@ func (store *Store) Prune(name string) (int, error) {
 	for i, segment := range names {
 		kept := make([]Event, 0, len(parsed[i]))
 		for _, event := range parsed[i] {
-			if event.Type == EventTransition && event.Check == name {
+			if event.Type == EventTransition && event.Check == id {
 				removed++
 				continue
 			}

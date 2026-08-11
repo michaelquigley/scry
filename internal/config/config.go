@@ -30,6 +30,7 @@ type Config struct {
 	StatusListen string         `dd:"status_listen"`
 	IngestListen string         `dd:"ingest_listen"`
 	StateFile    string         `dd:"state_file"`
+	HistoryDir   string         `dd:"history_dir"`
 	Defaults     Defaults       `dd:"defaults"`
 	Notifiers    NotifierConfig `dd:"notifiers"`
 	Checks       []Check        `dd:"checks"`
@@ -115,6 +116,7 @@ func NewConfig() *Config {
 		StatusListen: DefaultStatusListen,
 		IngestListen: DefaultIngestListen,
 		StateFile:    defaultStatePath(),
+		HistoryDir:   defaultHistoryPath(),
 		Defaults: Defaults{
 			Interval:    time.Minute,
 			Timeout:     10 * time.Second,
@@ -159,6 +161,9 @@ func (cfg *Config) Validate() error {
 	}
 	if strings.TrimSpace(cfg.StateFile) == "" {
 		return fmt.Errorf("state_file is required")
+	}
+	if strings.TrimSpace(cfg.HistoryDir) == "" {
+		return fmt.Errorf("history_dir is required")
 	}
 	if cfg.Defaults.Interval <= 0 {
 		return fmt.Errorf("defaults.interval must be positive")
@@ -458,6 +463,17 @@ func globalConfigPath() string {
 		return filepath.Join(".config", "scry", "config.yaml")
 	}
 	return filepath.Join(home, ".config", "scry", "config.yaml")
+}
+
+func defaultHistoryPath() string {
+	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "scry", "history")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".local", "state", "scry", "history")
+	}
+	return filepath.Join(home, ".local", "state", "scry", "history")
 }
 
 func defaultStatePath() string {

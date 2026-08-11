@@ -9,20 +9,40 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/michaelquigley/scry/internal/history"
 	"github.com/michaelquigley/scry/internal/model"
 	"github.com/michaelquigley/scry/internal/state"
 )
 
+// defaultHistoryWindow is the span an omitted from bound resolves to, back
+// from the resolved to.
+const defaultHistoryWindow = 90 * 24 * time.Hour
+
 // ErrStopped reports a command submitted after the engine loop has exited.
 var ErrStopped = errors.New("engine is stopped")
+
+// ErrInvalidHistoryWindow reports bounds the caller must fix. it is the one
+// history reply a transport renders as a client error; every other reply is
+// the daemon's own failure.
+var ErrInvalidHistoryWindow = errors.New("invalid history window")
 
 // Clock is the engine's only source of decision time.
 type Clock func() time.Time
 
-// Repository is the whole-state persistence seam.
+// Repository is the whole-state persistence seam. the saved stamp travels
+// through the seam so the store never reads a clock of its own.
 type Repository interface {
-	Load() (state.Snapshot, error)
-	Save(state.Snapshot) error
+	Load() (state.Snapshot, time.Time, error)
+	Save(state.Snapshot, time.Time) error
+}
+
+// Ledger is the append-only history seam. starting a ledger belongs to Boot
+// alone; the engine never opens one mid-run.
+type Ledger interface {
+	Boot(at, lastSaved time.Time, configured map[string]struct{}) error
+	AppendTransition(model.Transition) error
+	AppendStop(at time.Time) error
+	Window(from, to time.Time) (history.Window, error)
 }
 
 // TransitionQueue accepts announced transitions without delivery backpressure.
@@ -45,12 +65,23 @@ func (snapshot Snapshot) Clone() Snapshot {
 	return clone
 }
 
+// HistoryView is one consistent cut across the ledger and the records: no
+// document can miss an event older than its own Generated stamp.
+type HistoryView struct {
+	From      time.Time
+	To        time.Time
+	Generated time.Time
+	Window    history.Window
+	Checks    []model.CheckRecord
+}
+
 // Engine owns all mutable records inside Run's serialized command loop.
 type Engine struct {
 	checks      []model.Check
 	registry    map[string]model.Check
 	records     map[string]model.Record
 	repository  Repository
+	ledger      Ledger
 	clock       Clock
 	transitions TransitionQueue
 	commands    chan command
@@ -63,10 +94,14 @@ type Engine struct {
 	dirty bool
 }
 
-// New loads, reconciles, and persists state before returning a runnable engine.
-func New(checks []model.Check, repository Repository, clock Clock, transitions TransitionQueue) (*Engine, error) {
+// New loads, reconciles, boots history, and persists state before returning a
+// runnable engine.
+func New(checks []model.Check, repository Repository, ledger Ledger, clock Clock, transitions TransitionQueue) (*Engine, error) {
 	if repository == nil {
 		return nil, fmt.Errorf("state repository is required")
+	}
+	if ledger == nil {
+		return nil, fmt.Errorf("history ledger is required")
 	}
 	if clock == nil {
 		return nil, fmt.Errorf("clock is required")
@@ -77,6 +112,7 @@ func New(checks []model.Check, repository Repository, clock Clock, transitions T
 		registry:    make(map[string]model.Check, len(checks)),
 		records:     make(map[string]model.Record, len(checks)),
 		repository:  repository,
+		ledger:      ledger,
 		clock:       clock,
 		transitions: transitions,
 		commands:    make(chan command),
@@ -93,7 +129,7 @@ func New(checks []model.Check, repository Repository, clock Clock, transitions T
 		engine.registry[check.ID] = check
 	}
 
-	loaded, err := repository.Load()
+	loaded, lastSaved, err := repository.Load()
 	if err != nil {
 		return nil, fmt.Errorf("load state: %w", err)
 	}
@@ -107,7 +143,17 @@ func New(checks []model.Check, repository Repository, clock Clock, transitions T
 		engine.records[check.ID] = entry.Record.Clone()
 	}
 
-	if err := engine.persist(); err != nil {
+	// history boots before the reconciliation save, so a ledger the daemon
+	// cannot read or write stops it before it has rewritten the state file.
+	configured := make(map[string]struct{}, len(engine.registry))
+	for id := range engine.registry {
+		configured[id] = struct{}{}
+	}
+	if err := ledger.Boot(at, lastSaved, configured); err != nil {
+		return nil, fmt.Errorf("boot history: %w", err)
+	}
+
+	if err := engine.persist(at); err != nil {
 		return nil, fmt.Errorf("persist reconciled state: %w", err)
 	}
 	engine.publish()
@@ -124,10 +170,12 @@ func (engine *Engine) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			if engine.dirty {
-				if err := engine.persist(); err != nil {
-					return fmt.Errorf("persist state at shutdown: %w", err)
-				}
+			at := engine.clock()
+			if err := engine.persist(at); err != nil {
+				return fmt.Errorf("persist state at shutdown: %w", err)
+			}
+			if err := engine.ledger.AppendStop(at); err != nil {
+				return fmt.Errorf("record daemon stop: %w", err)
 			}
 			return nil
 		case command := <-engine.commands:
@@ -167,7 +215,8 @@ func (engine *Engine) Sweep(ctx context.Context) ([]model.Transition, error) {
 	return response.transitions, response.err
 }
 
-// Flush persists dirty non-transitioning active results.
+// Flush persists the whole snapshot whether or not anything changed, so a
+// quiet estate still advances the saved stamp history reads as liveness.
 func (engine *Engine) Flush(ctx context.Context) error {
 	response, err := engine.submit(ctx, command{kind: commandFlush})
 	if err != nil {
@@ -183,6 +232,21 @@ func (engine *Engine) Snapshot() Snapshot {
 	return engine.snapshot.Clone()
 }
 
+// HistoryView reads the ledger window and the records as one cut inside the
+// serialized loop. omitted bounds resolve against the same clock reading the
+// view is stamped with, so the default window's edge and the watermark cannot
+// diverge.
+func (engine *Engine) HistoryView(ctx context.Context, from, to *time.Time) (HistoryView, error) {
+	response, err := engine.submit(ctx, command{kind: commandHistory, from: from, to: to})
+	if err != nil {
+		return HistoryView{}, err
+	}
+	if response.err != nil {
+		return HistoryView{}, response.err
+	}
+	return response.view, nil
+}
+
 type commandKind int
 
 const (
@@ -190,18 +254,22 @@ const (
 	commandReport
 	commandSweep
 	commandFlush
+	commandHistory
 )
 
 type command struct {
 	kind   commandKind
 	id     string
 	result model.Result
+	from   *time.Time
+	to     *time.Time
 	reply  chan response
 }
 
 type response struct {
 	transition  *model.Transition
 	transitions []model.Transition
+	view        HistoryView
 	err         error
 }
 
@@ -245,6 +313,8 @@ func (engine *Engine) handle(command command) (response, error) {
 		return engine.handleSweep()
 	case commandFlush:
 		return engine.handleFlush()
+	case commandHistory:
+		return engine.handleHistory(command.from, command.to)
 	default:
 		err := fmt.Errorf("unknown engine command %d", command.kind)
 		return response{err: err}, nil
@@ -256,17 +326,21 @@ func (engine *Engine) handleActive(id string, result model.Result) (response, er
 	if !found {
 		return response{err: fmt.Errorf("unknown check %q", id)}, nil
 	}
+	at := engine.clock()
 	current := engine.records[id]
-	change, err := model.ApplyActive(check, current, result, engine.clock())
+	change, err := model.ApplyActive(check, current, result, at)
 	if err != nil {
 		return response{err: err}, nil
 	}
 	engine.records[id] = change.Record
 	engine.dirty = engine.dirty || change.Dirty
 	if change.Transition != nil {
-		if err := engine.persist(); err != nil {
+		if err := engine.persist(at); err != nil {
 			fatal := fmt.Errorf("persist transition for check %q: %w", id, err)
 			return response{err: fatal}, fatal
+		}
+		if err := engine.record(*change.Transition); err != nil {
+			return response{err: err}, err
 		}
 	}
 	engine.enqueue(change.Transition)
@@ -279,16 +353,22 @@ func (engine *Engine) handleReport(id string, result model.Result) (response, er
 	if !found {
 		return response{err: fmt.Errorf("unknown check %q", id)}, nil
 	}
+	at := engine.clock()
 	current := engine.records[id]
-	change, err := model.ApplyPassiveReport(check, current, result, engine.clock())
+	change, err := model.ApplyPassiveReport(check, current, result, at)
 	if err != nil {
 		return response{err: err}, nil
 	}
 	engine.records[id] = change.Record
 	engine.dirty = true
-	if err := engine.persist(); err != nil {
+	if err := engine.persist(at); err != nil {
 		fatal := fmt.Errorf("persist report for check %q: %w", id, err)
 		return response{err: fatal}, fatal
+	}
+	if change.Transition != nil {
+		if err := engine.record(*change.Transition); err != nil {
+			return response{err: err}, err
+		}
 	}
 	engine.enqueue(change.Transition)
 	engine.publish()
@@ -316,9 +396,17 @@ func (engine *Engine) handleSweep() (response, error) {
 	if len(transitions) == 0 {
 		return response{transitions: transitions}, nil
 	}
-	if err := engine.persist(); err != nil {
+	if err := engine.persist(at); err != nil {
 		fatal := fmt.Errorf("persist passive sweep: %w", err)
 		return response{err: fatal}, fatal
+	}
+	// one persist covers the whole sweep, and every append lands before any
+	// notification fans out, the same order the single-transition handlers
+	// keep.
+	for i := range transitions {
+		if err := engine.record(transitions[i]); err != nil {
+			return response{err: err}, err
+		}
 	}
 	for i := range transitions {
 		engine.enqueue(&transitions[i])
@@ -327,22 +415,65 @@ func (engine *Engine) handleSweep() (response, error) {
 	return response{transitions: transitions}, nil
 }
 
+// handleFlush persists unconditionally: the periodic flush is what keeps the
+// saved stamp a live bound on the daemon's death, so a quiet estate has to
+// advance it too.
 func (engine *Engine) handleFlush() (response, error) {
-	if !engine.dirty {
-		return response{}, nil
-	}
-	if err := engine.persist(); err != nil {
+	if err := engine.persist(engine.clock()); err != nil {
 		fatal := fmt.Errorf("flush state: %w", err)
 		return response{err: fatal}, fatal
 	}
 	return response{}, nil
 }
 
-func (engine *Engine) persist() error {
-	if err := engine.repository.Save(engine.persistedSnapshot()); err != nil {
+func (engine *Engine) handleHistory(from, to *time.Time) (response, error) {
+	generated := engine.clock()
+	resolvedTo := generated
+	if to != nil {
+		resolvedTo = *to
+	}
+	resolvedFrom := resolvedTo.Add(-defaultHistoryWindow)
+	if from != nil {
+		resolvedFrom = *from
+	}
+	// validation runs once, on the fully resolved pair, so no one-sided
+	// request can reach the ledger inverted.
+	if !resolvedFrom.Before(resolvedTo) {
+		return response{err: fmt.Errorf("%w: from must precede to", ErrInvalidHistoryWindow)}, nil
+	}
+	if resolvedTo.After(generated) {
+		return response{err: fmt.Errorf("%w: to must not be in the future", ErrInvalidHistoryWindow)}, nil
+	}
+
+	window, err := engine.ledger.Window(resolvedFrom, resolvedTo)
+	if err != nil {
+		// a post-boot read fails the request, never the daemon.
+		return response{err: fmt.Errorf("read history: %w", err)}, nil
+	}
+	return response{view: HistoryView{
+		From:      resolvedFrom,
+		To:        resolvedTo,
+		Generated: generated,
+		Window:    window,
+		Checks:    engine.checkRecords(),
+	}}, nil
+}
+
+func (engine *Engine) persist(at time.Time) error {
+	if err := engine.repository.Save(engine.persistedSnapshot(), at); err != nil {
 		return err
 	}
 	engine.dirty = false
+	return nil
+}
+
+// record appends one transition to the ledger. the state save leads and the
+// append follows, so a crash between them loses at most the final transition
+// from history; a failed append is fatal exactly as a failed save is.
+func (engine *Engine) record(transition model.Transition) error {
+	if err := engine.ledger.AppendTransition(transition); err != nil {
+		return fmt.Errorf("record transition for check %q: %w", transition.CheckID, err)
+	}
 	return nil
 }
 
@@ -357,14 +488,20 @@ func (engine *Engine) persistedSnapshot() state.Snapshot {
 	return snapshot
 }
 
-func (engine *Engine) publish() {
-	snapshot := Snapshot{Checks: make([]model.CheckRecord, len(engine.checks))}
+// checkRecords returns a registry-ordered deep copy of the current records.
+func (engine *Engine) checkRecords() []model.CheckRecord {
+	records := make([]model.CheckRecord, len(engine.checks))
 	for i, check := range engine.checks {
-		snapshot.Checks[i] = model.CheckRecord{
+		records[i] = model.CheckRecord{
 			Check:  check,
 			Record: engine.records[check.ID].Clone(),
 		}
 	}
+	return records
+}
+
+func (engine *Engine) publish() {
+	snapshot := Snapshot{Checks: engine.checkRecords()}
 	engine.snapshotMu.Lock()
 	engine.snapshot = snapshot
 	engine.snapshotMu.Unlock()
