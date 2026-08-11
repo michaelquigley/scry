@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +14,10 @@ import (
 	"github.com/michaelquigley/scry/internal/model"
 )
 
-var generatedAt = time.Date(2026, time.July, 24, 9, 0, 0, 0, time.UTC)
+var (
+	generatedAt = time.Date(2026, time.July, 24, 9, 0, 0, 0, time.UTC)
+	startedAt   = generatedAt.Add(-6 * time.Hour)
+)
 
 type staticReader struct {
 	snapshot engine.Snapshot
@@ -21,6 +25,14 @@ type staticReader struct {
 
 func (reader staticReader) Snapshot() engine.Snapshot {
 	return reader.snapshot
+}
+
+// staticHistoryReader stands in wherever a test exercises the status side
+// only; the history route has its own tests over a real engine and ledger.
+type staticHistoryReader struct{}
+
+func (staticHistoryReader) HistoryView(context.Context, *time.Time, *time.Time) (engine.HistoryView, error) {
+	return engine.HistoryView{}, nil
 }
 
 func fixedClock(at time.Time) engine.Clock {
@@ -67,7 +79,7 @@ func estateSnapshot() engine.Snapshot {
 
 func serveStatus(t *testing.T, snapshot engine.Snapshot) *httptest.ResponseRecorder {
 	t.Helper()
-	handler, err := newHandler(staticReader{snapshot: snapshot}, fixedClock(generatedAt), "test estate", dashboardFS())
+	handler, err := newHandler(staticReader{snapshot: snapshot}, staticHistoryReader{}, fixedClock(generatedAt), "test estate", startedAt, dashboardFS())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,6 +110,11 @@ func TestStatusWalkRendersEveryCheckInRegistryOrder(t *testing.T) {
 	}
 	if !document.Generated.Equal(generatedAt) {
 		t.Fatalf("generated: %s", document.Generated)
+	}
+	// started is what lets an open page notice a restart no check transition
+	// would reveal.
+	if !document.Started.Equal(startedAt) {
+		t.Fatalf("started: %s", document.Started)
 	}
 	if document.Rollup.Ok != 1 || document.Rollup.Late != 1 || document.Rollup.Failed != 1 {
 		t.Fatalf("rollup: %+v", document.Rollup)
@@ -188,11 +205,14 @@ func TestTimestampsRenderInUTC(t *testing.T) {
 }
 
 func TestStatusHandlerRequiresItsCollaborators(t *testing.T) {
-	if _, err := newStatusHandler(nil, fixedClock(generatedAt), "test estate"); err == nil {
+	if _, err := newStatusHandler(nil, fixedClock(generatedAt), "test estate", startedAt); err == nil {
 		t.Fatal("a nil reader should be rejected")
 	}
-	if _, err := newStatusHandler(staticReader{}, nil, "test estate"); err == nil {
+	if _, err := newStatusHandler(staticReader{}, nil, "test estate", startedAt); err == nil {
 		t.Fatal("a nil clock should be rejected")
+	}
+	if _, err := newStatusHandler(staticReader{}, fixedClock(generatedAt), "test estate", time.Time{}); err == nil {
+		t.Fatal("a zero start time should be rejected")
 	}
 }
 

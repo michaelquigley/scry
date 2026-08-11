@@ -86,7 +86,8 @@ type Engine struct {
 	transitions TransitionQueue
 	commands    chan command
 	done        chan struct{}
-	started     atomic.Bool
+	started     time.Time
+	running     atomic.Bool
 
 	snapshotMu sync.RWMutex
 	snapshot   Snapshot
@@ -134,6 +135,7 @@ func New(checks []model.Check, repository Repository, ledger Ledger, clock Clock
 		return nil, fmt.Errorf("load state: %w", err)
 	}
 	at := clock()
+	engine.started = at
 	for _, check := range engine.checks {
 		entry, found := loaded[check.ID]
 		if !found || entry.Kind != check.Kind {
@@ -162,7 +164,7 @@ func New(checks []model.Check, repository Repository, ledger Ledger, clock Clock
 
 // Run processes commands until cancellation or a fatal persistence failure.
 func (engine *Engine) Run(ctx context.Context) error {
-	if !engine.started.CompareAndSwap(false, true) {
+	if !engine.running.CompareAndSwap(false, true) {
 		return fmt.Errorf("engine already started")
 	}
 	defer close(engine.done)
@@ -223,6 +225,12 @@ func (engine *Engine) Flush(ctx context.Context) error {
 		return err
 	}
 	return response.err
+}
+
+// Started reports the daemon's boot instant, the same reading that stamps the
+// ledger's start event. it is fixed for the life of the engine.
+func (engine *Engine) Started() time.Time {
+	return engine.started
 }
 
 // Snapshot returns the latest copy published by the serialized owner.

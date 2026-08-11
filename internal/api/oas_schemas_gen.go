@@ -106,6 +106,201 @@ func (s *Check) SetDetail(val NilString) {
 	s.Detail = val
 }
 
+// Ref: #/components/schemas/check_history
+type CheckHistory struct {
+	// The registry slug.
+	ID string `json:"id"`
+	// The registry's current value; per-event kind is the authoritative attribution for a window spanning
+	// a kind change.
+	Kind Kind `json:"kind"`
+	// The state as the window opened; null when the check did not exist at from.
+	StateAtFrom NilState `json:"state_at_from"`
+	// The state at the window's end; null when the check did not exist at to.
+	StateAtTo NilState `json:"state_at_to"`
+	// When state_at_to began; resolved with it as a pair, so it is null exactly when state_at_to is null.
+	Since NilDateTime `json:"since"`
+	// Every transition inside the window, ascending.
+	Events []TransitionEvent `json:"events"`
+}
+
+// GetID returns the value of ID.
+func (s *CheckHistory) GetID() string {
+	return s.ID
+}
+
+// GetKind returns the value of Kind.
+func (s *CheckHistory) GetKind() Kind {
+	return s.Kind
+}
+
+// GetStateAtFrom returns the value of StateAtFrom.
+func (s *CheckHistory) GetStateAtFrom() NilState {
+	return s.StateAtFrom
+}
+
+// GetStateAtTo returns the value of StateAtTo.
+func (s *CheckHistory) GetStateAtTo() NilState {
+	return s.StateAtTo
+}
+
+// GetSince returns the value of Since.
+func (s *CheckHistory) GetSince() NilDateTime {
+	return s.Since
+}
+
+// GetEvents returns the value of Events.
+func (s *CheckHistory) GetEvents() []TransitionEvent {
+	return s.Events
+}
+
+// SetID sets the value of ID.
+func (s *CheckHistory) SetID(val string) {
+	s.ID = val
+}
+
+// SetKind sets the value of Kind.
+func (s *CheckHistory) SetKind(val Kind) {
+	s.Kind = val
+}
+
+// SetStateAtFrom sets the value of StateAtFrom.
+func (s *CheckHistory) SetStateAtFrom(val NilState) {
+	s.StateAtFrom = val
+}
+
+// SetStateAtTo sets the value of StateAtTo.
+func (s *CheckHistory) SetStateAtTo(val NilState) {
+	s.StateAtTo = val
+}
+
+// SetSince sets the value of Since.
+func (s *CheckHistory) SetSince(val NilDateTime) {
+	s.Since = val
+}
+
+// SetEvents sets the value of Events.
+func (s *CheckHistory) SetEvents(val []TransitionEvent) {
+	s.Events = val
+}
+
+// A request the daemon refused or could not serve.
+// Ref: #/components/schemas/error
+type Error struct {
+	Message string `json:"message"`
+}
+
+// GetMessage returns the value of Message.
+func (s *Error) GetMessage() string {
+	return s.Message
+}
+
+// SetMessage sets the value of Message.
+func (s *Error) SetMessage(val string) {
+	s.Message = val
+}
+
+type GetHistoryBadRequest Error
+
+func (*GetHistoryBadRequest) getHistoryRes() {}
+
+type GetHistoryInternalServerError Error
+
+func (*GetHistoryInternalServerError) getHistoryRes() {}
+
+// Every configured check's recorded state across one window, resolved by the daemon so the page never
+// reconstructs state from outside this document.
+// Ref: #/components/schemas/history
+type History struct {
+	// The display name of the monitored estate.
+	Estate string `json:"estate"`
+	// When the daemon rendered this document.
+	Generated time.Time `json:"generated"`
+	// The resolved start of the window.
+	From time.Time `json:"from"`
+	// The resolved end of the window.
+	To time.Time `json:"to"`
+	// Whether the daemon was watching as the window opened; false when the ledger cannot testify, which
+	// the events alone cannot show once the telling stop falls before from.
+	WatchingAtFrom bool `json:"watching_at_from"`
+	// Every configured check in registry order.
+	Checks []CheckHistory `json:"checks"`
+	// The daemon's own lifecycle events inside the window; they belong to the estate rather than to any
+	// check.
+	Daemon []LifecycleEvent `json:"daemon"`
+}
+
+// GetEstate returns the value of Estate.
+func (s *History) GetEstate() string {
+	return s.Estate
+}
+
+// GetGenerated returns the value of Generated.
+func (s *History) GetGenerated() time.Time {
+	return s.Generated
+}
+
+// GetFrom returns the value of From.
+func (s *History) GetFrom() time.Time {
+	return s.From
+}
+
+// GetTo returns the value of To.
+func (s *History) GetTo() time.Time {
+	return s.To
+}
+
+// GetWatchingAtFrom returns the value of WatchingAtFrom.
+func (s *History) GetWatchingAtFrom() bool {
+	return s.WatchingAtFrom
+}
+
+// GetChecks returns the value of Checks.
+func (s *History) GetChecks() []CheckHistory {
+	return s.Checks
+}
+
+// GetDaemon returns the value of Daemon.
+func (s *History) GetDaemon() []LifecycleEvent {
+	return s.Daemon
+}
+
+// SetEstate sets the value of Estate.
+func (s *History) SetEstate(val string) {
+	s.Estate = val
+}
+
+// SetGenerated sets the value of Generated.
+func (s *History) SetGenerated(val time.Time) {
+	s.Generated = val
+}
+
+// SetFrom sets the value of From.
+func (s *History) SetFrom(val time.Time) {
+	s.From = val
+}
+
+// SetTo sets the value of To.
+func (s *History) SetTo(val time.Time) {
+	s.To = val
+}
+
+// SetWatchingAtFrom sets the value of WatchingAtFrom.
+func (s *History) SetWatchingAtFrom(val bool) {
+	s.WatchingAtFrom = val
+}
+
+// SetChecks sets the value of Checks.
+func (s *History) SetChecks(val []CheckHistory) {
+	s.Checks = val
+}
+
+// SetDaemon sets the value of Daemon.
+func (s *History) SetDaemon(val []LifecycleEvent) {
+	s.Daemon = val
+}
+
+func (*History) getHistoryRes() {}
+
 // How the check receives results.
 // Ref: #/components/schemas/kind
 type Kind string
@@ -150,6 +345,74 @@ func (s *Kind) UnmarshalText(data []byte) error {
 		return nil
 	case KindTCP:
 		*s = KindTCP
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// One daemon start or stop.
+// Ref: #/components/schemas/lifecycle_event
+type LifecycleEvent struct {
+	Ts    time.Time           `json:"ts"`
+	Event LifecycleEventEvent `json:"event"`
+}
+
+// GetTs returns the value of Ts.
+func (s *LifecycleEvent) GetTs() time.Time {
+	return s.Ts
+}
+
+// GetEvent returns the value of Event.
+func (s *LifecycleEvent) GetEvent() LifecycleEventEvent {
+	return s.Event
+}
+
+// SetTs sets the value of Ts.
+func (s *LifecycleEvent) SetTs(val time.Time) {
+	s.Ts = val
+}
+
+// SetEvent sets the value of Event.
+func (s *LifecycleEvent) SetEvent(val LifecycleEventEvent) {
+	s.Event = val
+}
+
+type LifecycleEventEvent string
+
+const (
+	LifecycleEventEventStart LifecycleEventEvent = "start"
+	LifecycleEventEventStop  LifecycleEventEvent = "stop"
+)
+
+// AllValues returns all LifecycleEventEvent values.
+func (LifecycleEventEvent) AllValues() []LifecycleEventEvent {
+	return []LifecycleEventEvent{
+		LifecycleEventEventStart,
+		LifecycleEventEventStop,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s LifecycleEventEvent) MarshalText() ([]byte, error) {
+	switch s {
+	case LifecycleEventEventStart:
+		return []byte(s), nil
+	case LifecycleEventEventStop:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *LifecycleEventEvent) UnmarshalText(data []byte) error {
+	switch LifecycleEventEvent(data) {
+	case LifecycleEventEventStart:
+		*s = LifecycleEventEventStart
+		return nil
+	case LifecycleEventEventStop:
+		*s = LifecycleEventEventStop
 		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
@@ -201,6 +464,51 @@ func (o NilDateTime) Or(d time.Time) time.Time {
 	return d
 }
 
+// NewNilState returns new NilState with value set to v.
+func NewNilState(v State) NilState {
+	return NilState{
+		Value: v,
+	}
+}
+
+// NilState is nullable State.
+type NilState struct {
+	Value State
+	Null  bool
+}
+
+// SetTo sets value to v.
+func (o *NilState) SetTo(v State) {
+	o.Null = false
+	o.Value = v
+}
+
+// IsNull returns true if value is Null.
+func (o NilState) IsNull() bool { return o.Null }
+
+// SetToNull sets value to null.
+func (o *NilState) SetToNull() {
+	o.Null = true
+	var v State
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o NilState) Get() (v State, ok bool) {
+	if o.Null {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o NilState) Or(d State) State {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
 // NewNilString returns new NilString with value set to v.
 func NewNilString(v string) NilString {
 	return NilString{
@@ -240,6 +548,52 @@ func (o NilString) Get() (v string, ok bool) {
 
 // Or returns value if set, or given parameter if does not.
 func (o NilString) Or(d string) string {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptDateTime returns new OptDateTime with value set to v.
+func NewOptDateTime(v time.Time) OptDateTime {
+	return OptDateTime{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptDateTime is optional time.Time.
+type OptDateTime struct {
+	Value time.Time
+	Set   bool
+}
+
+// IsSet returns true if OptDateTime was set.
+func (o OptDateTime) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptDateTime) Reset() {
+	var v time.Time
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptDateTime) SetTo(v time.Time) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptDateTime) Get() (v time.Time, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptDateTime) Or(d time.Time) time.Time {
 	if v, ok := o.Get(); ok {
 		return v
 	}
@@ -341,7 +695,10 @@ type Status struct {
 	Estate string `json:"estate"`
 	// When the daemon rendered this document.
 	Generated time.Time `json:"generated"`
-	Rollup    Rollup    `json:"rollup"`
+	// When the running daemon booted; a changed value is how an open page learns of a restart no check
+	// transition would reveal.
+	Started time.Time `json:"started"`
+	Rollup  Rollup    `json:"rollup"`
 	// Every check in registry order; sorting is a render decision.
 	Checks []Check `json:"checks"`
 }
@@ -354,6 +711,11 @@ func (s *Status) GetEstate() string {
 // GetGenerated returns the value of Generated.
 func (s *Status) GetGenerated() time.Time {
 	return s.Generated
+}
+
+// GetStarted returns the value of Started.
+func (s *Status) GetStarted() time.Time {
+	return s.Started
 }
 
 // GetRollup returns the value of Rollup.
@@ -376,6 +738,11 @@ func (s *Status) SetGenerated(val time.Time) {
 	s.Generated = val
 }
 
+// SetStarted sets the value of Started.
+func (s *Status) SetStarted(val time.Time) {
+	s.Started = val
+}
+
 // SetRollup sets the value of Rollup.
 func (s *Status) SetRollup(val Rollup) {
 	s.Rollup = val
@@ -384,4 +751,79 @@ func (s *Status) SetRollup(val Rollup) {
 // SetChecks sets the value of Checks.
 func (s *Status) SetChecks(val []Check) {
 	s.Checks = val
+}
+
+// One recorded state change.
+// Ref: #/components/schemas/transition_event
+type TransitionEvent struct {
+	// When the transition happened.
+	Ts time.Time `json:"ts"`
+	// The check's kind when the event fired.
+	Kind Kind  `json:"kind"`
+	From State `json:"from"`
+	To   State `json:"to"`
+	// When the from-state began; the existence boundary no backward state claim extends past.
+	PrevSince time.Time `json:"prev_since"`
+	// Detail from the result that caused the transition.
+	Detail NilString `json:"detail"`
+}
+
+// GetTs returns the value of Ts.
+func (s *TransitionEvent) GetTs() time.Time {
+	return s.Ts
+}
+
+// GetKind returns the value of Kind.
+func (s *TransitionEvent) GetKind() Kind {
+	return s.Kind
+}
+
+// GetFrom returns the value of From.
+func (s *TransitionEvent) GetFrom() State {
+	return s.From
+}
+
+// GetTo returns the value of To.
+func (s *TransitionEvent) GetTo() State {
+	return s.To
+}
+
+// GetPrevSince returns the value of PrevSince.
+func (s *TransitionEvent) GetPrevSince() time.Time {
+	return s.PrevSince
+}
+
+// GetDetail returns the value of Detail.
+func (s *TransitionEvent) GetDetail() NilString {
+	return s.Detail
+}
+
+// SetTs sets the value of Ts.
+func (s *TransitionEvent) SetTs(val time.Time) {
+	s.Ts = val
+}
+
+// SetKind sets the value of Kind.
+func (s *TransitionEvent) SetKind(val Kind) {
+	s.Kind = val
+}
+
+// SetFrom sets the value of From.
+func (s *TransitionEvent) SetFrom(val State) {
+	s.From = val
+}
+
+// SetTo sets the value of To.
+func (s *TransitionEvent) SetTo(val State) {
+	s.To = val
+}
+
+// SetPrevSince sets the value of PrevSince.
+func (s *TransitionEvent) SetPrevSince(val time.Time) {
+	s.PrevSince = val
+}
+
+// SetDetail sets the value of Detail.
+func (s *TransitionEvent) SetDetail(val NilString) {
+	s.Detail = val
 }

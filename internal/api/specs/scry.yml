@@ -27,12 +27,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/status"
 
+  /history:
+    get:
+      operationId: getHistory
+      summary: every configured check's recorded state over one window
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: >-
+            the window's start; defaults to 90 days before the resolved end
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: >-
+            the window's end; defaults to the instant the document is generated
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: the resolved window, its events, and both bound states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/history"
+        "400":
+          description: the resolved window is inverted, empty, or ends in the future
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          description: the ledger could not be read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+
 components:
   schemas:
     status:
       type: object
       description: one snapshot of the registry, stamped when it was rendered
-      required: [estate, generated, rollup, checks]
+      required: [estate, generated, started, rollup, checks]
       properties:
         estate:
           type: string
@@ -41,6 +82,12 @@ components:
           type: string
           format: date-time
           description: when the daemon rendered this document
+        started:
+          type: string
+          format: date-time
+          description: >-
+            when the running daemon booted; a changed value is how an open page
+            learns of a restart no check transition would reveal
         rollup:
           $ref: "#/components/schemas/rollup"
         checks:
@@ -93,6 +140,136 @@ components:
           type: string
           nullable: true
           description: detail from the last result or report; null until one arrives
+
+    history:
+      type: object
+      description: >-
+        every configured check's recorded state across one window, resolved by
+        the daemon so the page never reconstructs state from outside this
+        document
+      required: [estate, generated, from, to, watching_at_from, checks, daemon]
+      properties:
+        estate:
+          type: string
+          description: the display name of the monitored estate
+        generated:
+          type: string
+          format: date-time
+          description: when the daemon rendered this document
+        from:
+          type: string
+          format: date-time
+          description: the resolved start of the window
+        to:
+          type: string
+          format: date-time
+          description: the resolved end of the window
+        watching_at_from:
+          type: boolean
+          description: >-
+            whether the daemon was watching as the window opened; false when the
+            ledger cannot testify, which the events alone cannot show once the
+            telling stop falls before from
+        checks:
+          type: array
+          description: every configured check in registry order
+          items:
+            $ref: "#/components/schemas/check_history"
+        daemon:
+          type: array
+          description: >-
+            the daemon's own lifecycle events inside the window; they belong to
+            the estate rather than to any check
+          items:
+            $ref: "#/components/schemas/lifecycle_event"
+
+    check_history:
+      type: object
+      required: [id, kind, state_at_from, state_at_to, since, events]
+      properties:
+        id:
+          type: string
+          description: the registry slug
+        kind:
+          allOf:
+            - $ref: "#/components/schemas/kind"
+          description: >-
+            the registry's current value; per-event kind is the authoritative
+            attribution for a window spanning a kind change
+        state_at_from:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/state"
+          description: >-
+            the state as the window opened; null when the check did not exist
+            at from
+        state_at_to:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/state"
+          description: >-
+            the state at the window's end; null when the check did not exist at
+            to
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            when state_at_to began; resolved with it as a pair, so it is null
+            exactly when state_at_to is null
+        events:
+          type: array
+          description: every transition inside the window, ascending
+          items:
+            $ref: "#/components/schemas/transition_event"
+
+    transition_event:
+      type: object
+      description: one recorded state change
+      required: [ts, kind, from, to, prev_since, detail]
+      properties:
+        ts:
+          type: string
+          format: date-time
+          description: when the transition happened
+        kind:
+          allOf:
+            - $ref: "#/components/schemas/kind"
+          description: the check's kind when the event fired
+        from:
+          $ref: "#/components/schemas/state"
+        to:
+          $ref: "#/components/schemas/state"
+        prev_since:
+          type: string
+          format: date-time
+          description: >-
+            when the from-state began; the existence boundary no backward state
+            claim extends past
+        detail:
+          type: string
+          nullable: true
+          description: detail from the result that caused the transition
+
+    lifecycle_event:
+      type: object
+      description: one daemon start or stop
+      required: [ts, event]
+      properties:
+        ts:
+          type: string
+          format: date-time
+        event:
+          type: string
+          enum: [start, stop]
+
+    error:
+      type: object
+      description: a request the daemon refused or could not serve
+      required: [message]
+      properties:
+        message:
+          type: string
 
     kind:
       type: string

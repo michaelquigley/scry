@@ -8,6 +8,12 @@ import (
 
 // Handler handles operations described by OpenAPI v3 specification.
 type Handler interface {
+	// GetHistory implements getHistory operation.
+	//
+	// Every configured check's recorded state over one window.
+	//
+	// GET /history
+	GetHistory(ctx context.Context, params GetHistoryParams) (GetHistoryRes, error)
 	// GetStatus implements getStatus operation.
 	//
 	// The whole estate's current status.

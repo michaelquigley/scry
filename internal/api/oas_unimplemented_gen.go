@@ -13,6 +13,15 @@ type UnimplementedHandler struct{}
 
 var _ Handler = UnimplementedHandler{}
 
+// GetHistory implements getHistory operation.
+//
+// Every configured check's recorded state over one window.
+//
+// GET /history
+func (UnimplementedHandler) GetHistory(ctx context.Context, params GetHistoryParams) (r GetHistoryRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetStatus implements getStatus operation.
 //
 // The whole estate's current status.

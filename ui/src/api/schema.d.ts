@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** every configured check's recorded state over one window */
+        get: operations["getHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -34,6 +51,11 @@ export interface components {
              * @description when the daemon rendered this document
              */
             generated: string;
+            /**
+             * Format: date-time
+             * @description when the running daemon booted; a changed value is how an open page learns of a restart no check transition would reveal
+             */
+            started: string;
             rollup: components["schemas"]["rollup"];
             /** @description every check in registry order; sorting is a render decision */
             checks: components["schemas"]["check"][];
@@ -68,6 +90,79 @@ export interface components {
             last_seen: string | null;
             /** @description detail from the last result or report; null until one arrives */
             detail: string | null;
+        };
+        /** @description every configured check's recorded state across one window, resolved by the daemon so the page never reconstructs state from outside this document */
+        history: {
+            /** @description the display name of the monitored estate */
+            estate: string;
+            /**
+             * Format: date-time
+             * @description when the daemon rendered this document
+             */
+            generated: string;
+            /**
+             * Format: date-time
+             * @description the resolved start of the window
+             */
+            from: string;
+            /**
+             * Format: date-time
+             * @description the resolved end of the window
+             */
+            to: string;
+            /** @description whether the daemon was watching as the window opened; false when the ledger cannot testify, which the events alone cannot show once the telling stop falls before from */
+            watching_at_from: boolean;
+            /** @description every configured check in registry order */
+            checks: components["schemas"]["check_history"][];
+            /** @description the daemon's own lifecycle events inside the window; they belong to the estate rather than to any check */
+            daemon: components["schemas"]["lifecycle_event"][];
+        };
+        check_history: {
+            /** @description the registry slug */
+            id: string;
+            /** @description the registry's current value; per-event kind is the authoritative attribution for a window spanning a kind change */
+            kind: components["schemas"]["kind"];
+            /** @description the state as the window opened; null when the check did not exist at from */
+            state_at_from: components["schemas"]["state"] | null;
+            /** @description the state at the window's end; null when the check did not exist at to */
+            state_at_to: components["schemas"]["state"] | null;
+            /**
+             * Format: date-time
+             * @description when state_at_to began; resolved with it as a pair, so it is null exactly when state_at_to is null
+             */
+            since: string | null;
+            /** @description every transition inside the window, ascending */
+            events: components["schemas"]["transition_event"][];
+        };
+        /** @description one recorded state change */
+        transition_event: {
+            /**
+             * Format: date-time
+             * @description when the transition happened
+             */
+            ts: string;
+            /** @description the check's kind when the event fired */
+            kind: components["schemas"]["kind"];
+            from: components["schemas"]["state"];
+            to: components["schemas"]["state"];
+            /**
+             * Format: date-time
+             * @description when the from-state began; the existence boundary no backward state claim extends past
+             */
+            prev_since: string;
+            /** @description detail from the result that caused the transition */
+            detail: string | null;
+        };
+        /** @description one daemon start or stop */
+        lifecycle_event: {
+            /** Format: date-time */
+            ts: string;
+            /** @enum {string} */
+            event: "start" | "stop";
+        };
+        /** @description a request the daemon refused or could not serve */
+        error: {
+            message: string;
         };
         /**
          * @description how the check receives results
@@ -104,6 +199,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["status"];
+                };
+            };
+        };
+    };
+    getHistory: {
+        parameters: {
+            query?: {
+                /** @description the window's start; defaults to 90 days before the resolved end */
+                from?: string;
+                /** @description the window's end; defaults to the instant the document is generated */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the resolved window, its events, and both bound states */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["history"];
+                };
+            };
+            /** @description the resolved window is inverted, empty, or ends in the future */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["error"];
+                };
+            };
+            /** @description the ledger could not be read */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["error"];
                 };
             };
         };

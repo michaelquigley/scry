@@ -6,5 +6,6 @@ package api
 type OperationName = string
 
 const (
-	GetStatusOperation OperationName = "GetStatus"
+	GetHistoryOperation OperationName = "GetHistory"
+	GetStatusOperation  OperationName = "GetStatus"
 )

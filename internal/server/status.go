@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/michaelquigley/scry/internal/api"
 	"github.com/michaelquigley/scry/internal/engine"
@@ -17,12 +18,13 @@ type Reader interface {
 
 // statusHandler renders the single walk of the status model.
 type statusHandler struct {
-	reader Reader
-	clock  engine.Clock
-	estate string
+	reader  Reader
+	clock   engine.Clock
+	estate  string
+	started time.Time
 }
 
-func newStatusHandler(reader Reader, clock engine.Clock, estate string) (*statusHandler, error) {
+func newStatusHandler(reader Reader, clock engine.Clock, estate string, started time.Time) (*statusHandler, error) {
 	if reader == nil {
 		return nil, fmt.Errorf("snapshot reader is required")
 	}
@@ -32,7 +34,10 @@ func newStatusHandler(reader Reader, clock engine.Clock, estate string) (*status
 	if estate == "" {
 		return nil, fmt.Errorf("estate name is required")
 	}
-	return &statusHandler{reader: reader, clock: clock, estate: estate}, nil
+	if started.IsZero() {
+		return nil, fmt.Errorf("daemon start time is required")
+	}
+	return &statusHandler{reader: reader, clock: clock, estate: estate, started: started}, nil
 }
 
 // GetStatus walks the published snapshot into the contract's status document.
@@ -41,6 +46,7 @@ func (handler *statusHandler) GetStatus(_ context.Context) (*api.Status, error) 
 	document := &api.Status{
 		Estate:    handler.estate,
 		Generated: handler.clock().UTC(),
+		Started:   handler.started.UTC(),
 		Checks:    make([]api.Check, len(snapshot.Checks)),
 	}
 	for i, entry := range snapshot.Checks {

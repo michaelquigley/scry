@@ -94,7 +94,7 @@ func runDaemon(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize ingest listener: %w", err)
 	}
-	statusHandler, err := server.NewHandler(stateEngine, time.Now, cfg.EstateName)
+	statusHandler, err := server.NewHandler(stateEngine, stateEngine, time.Now, cfg.EstateName, stateEngine.Started())
 	if err != nil {
 		return fmt.Errorf("initialize status handler: %w", err)
 	}

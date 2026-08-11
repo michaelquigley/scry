@@ -11,7 +11,7 @@ import (
 
 func newTestHandler(t *testing.T) *Handler {
 	t.Helper()
-	handler, err := newHandler(staticReader{snapshot: estateSnapshot()}, fixedClock(generatedAt), "test estate", dashboardFS())
+	handler, err := newHandler(staticReader{snapshot: estateSnapshot()}, staticHistoryReader{}, fixedClock(generatedAt), "test estate", startedAt, dashboardFS())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,15 +46,18 @@ func TestUnknownAPIPathsAreNotFound(t *testing.T) {
 }
 
 func TestHandlerRejectsAnUnusableReader(t *testing.T) {
-	if _, err := NewHandler(nil, fixedClock(generatedAt), "test estate"); err == nil {
+	if _, err := NewHandler(nil, staticHistoryReader{}, fixedClock(generatedAt), "test estate", startedAt); err == nil {
 		t.Fatal("a nil reader should be rejected")
+	}
+	if _, err := NewHandler(staticReader{}, nil, fixedClock(generatedAt), "test estate", startedAt); err == nil {
+		t.Fatal("a nil history reader should be rejected")
 	}
 }
 
 // NewHandler is exercised over the real embedded tree, which is empty under the
 // no_ui build tag; the API contract holds either way.
 func TestEmbeddedHandlerServesTheStatusAPI(t *testing.T) {
-	handler, err := NewHandler(staticReader{snapshot: estateSnapshot()}, fixedClock(generatedAt), "test estate")
+	handler, err := NewHandler(staticReader{snapshot: estateSnapshot()}, staticHistoryReader{}, fixedClock(generatedAt), "test estate", startedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
