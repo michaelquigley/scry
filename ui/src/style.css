@@ -165,6 +165,78 @@ h1 {
   color: var(--failed);
 }
 
+/* the state strip: exact proportional bands across a fixed window. the track
+   is what shows through where a check did not yet exist, so blank reads as
+   absence of a thing rather than absence of information. */
+.check-strip-row td {
+  padding: 0 0.75rem 0.7rem;
+}
+
+.strip {
+  position: relative;
+  height: 0.45rem;
+  border-radius: 3px;
+  background: rgba(109, 124, 121, 0.1);
+  overflow: hidden;
+}
+
+.strip-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.strip-ok {
+  background: var(--ok);
+  opacity: 0.5;
+}
+
+.strip-late {
+  background: var(--late);
+}
+
+.strip-failed {
+  background: var(--failed);
+}
+
+/* unwatched must read as absence, not as health or trouble: no state color,
+   just a hatch saying nobody was looking. */
+.strip-unwatched {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(109, 124, 121, 0.45) 0,
+    rgba(109, 124, 121, 0.45) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.strip-blank {
+  background: transparent;
+}
+
+/* a marker points at a band too short to see without widening the band
+   itself; the geometry stays honest and the incident stays findable. */
+.strip-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.strip-marker-late {
+  background: var(--late);
+}
+
+.strip-marker-failed {
+  background: var(--failed);
+}
+
+.strip-marker-unwatched {
+  background: var(--ink-muted);
+}
+
 .check-name {
   font-weight: 500;
 }

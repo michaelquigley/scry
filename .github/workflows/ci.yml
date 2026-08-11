@@ -32,6 +32,9 @@ jobs:
           npm --prefix ui ci
           npm --prefix ui run build
 
+      - name: test frontend
+        run: npm --prefix ui run test
+
       - name: setup go
         uses: actions/setup-go@v6
         with:

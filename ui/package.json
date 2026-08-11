@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "gen:api": "openapi-typescript ../internal/api/specs/scry.yml -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript ../internal/api/specs/scry.yml -o src/api/schema.d.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/source-code-pro": "^5.3.0",
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "openapi-typescript": "^7.13.0",
     "typescript": "~5.9.3",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "vitest": "^4.1.10"
   }
 }
