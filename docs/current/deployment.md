@@ -25,7 +25,14 @@ RestartSec=5s
 WantedBy=multi-user.target
 ```
 
-`StateDirectory=scry` gives the service `/var/lib/scry`, which is where `state_file` should point under systemd; the default `~/.local/state/scry/state.json` is a workstation convenience and should be set explicitly here. Scry treats a failed state save as fatal, so a state path the service cannot write is a boot failure rather than a silent divergence.
+`StateDirectory=scry` gives the service `/var/lib/scry`, which is where both durable paths should point under systemd:
+
+```yaml
+state_file: "/var/lib/scry/state.json"
+history_dir: "/var/lib/scry/history"
+```
+
+The defaults under `~/.local/state/scry` are a workstation convenience and should be set explicitly here. Scry treats a failed state save as fatal, and history shares that law — a ledger it cannot read whole at boot or append to at runtime stops the daemon — so either path the service cannot write is a boot failure rather than a silent divergence.
 
 The Mattermost bot token arrives through the environment file rather than the config file:
 

@@ -20,6 +20,7 @@ estate_name: "scry"
 status_listen: "0.0.0.0:8420"
 ingest_listen: "127.0.0.1:8421"
 state_file: "~/.local/state/scry/state.json"
+history_dir: "~/.local/state/scry/history"
 defaults:
   interval: 60s
   timeout: 10s
@@ -27,7 +28,7 @@ defaults:
   harden_after: 3
 ```
 
-`estate_name` is the display name of the monitored estate — it leads the status document and the dashboard header, defaults to `scry`, and an authored blank is invalid. `state_file` follows `$XDG_STATE_HOME` when set. Duration values use Go duration strings such as `30s`, `5m`, and `24h`.
+`estate_name` is the display name of the monitored estate — it leads the status document and the dashboard header, defaults to `scry`, and an authored blank is invalid. `state_file` and `history_dir` both follow `$XDG_STATE_HOME` when set; neither may be blank. `history_dir` holds the append-only transition ledger described in [Engine and State](engine-and-state.md); the daemon creates it at boot. Duration values use Go duration strings such as `30s`, `5m`, and `24h`.
 
 ## Registry
 
@@ -78,7 +79,12 @@ Sendmail delivers through the host MTA's `sendmail` binary instead of a direct r
 
 ```sh
 scry [--config path] [--verbose]
+scry prune <check-id>
 scry version
 ```
 
 Verbose mode reinitializes df logging at debug level. Version output is supplied by `push/build`.
+
+`prune` retires one check from both durable truths: it removes every transition the ledger holds under that id and drops the check's entry from the state file. It takes the check *id* — the key both files are written under — not the display name. Daemon lifecycle events are estate-scoped and are left alone, and the state file's `saved` stamp is preserved, since prune makes no liveness claim.
+
+Both files belong to the running daemon, so **prune runs against a stopped daemon**; it is unguarded, the same property the state file already has. It is curation for a healthy ledger, not a corruption remedy: it strict-reads the whole ledger first and refuses a malformed one. A still-configured id resumes as a fresh baseline at the next boot, which is exactly the reset the command promises; that is also the tool for a reused id or a deliberate clean break after a kind change.

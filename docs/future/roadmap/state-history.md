@@ -1,6 +1,6 @@
 ---
 title: state history
-state: building
+state: evaluating
 created: 2026-08-09
 tags: [epic, spike]
 milestone: v0.1.x
