@@ -13,3 +13,4 @@ node_modules
 /scry
 ui/dist/
 ui/node_modules/
+.pi

@@ -1,9 +1,9 @@
 horizon:
-  - per-check-history-detail-view.md
   - agent-strategy-and-reference-agent.md
   - mcp-status-reader.md
   - zrok-native-ingest-listener.md
   - embedding-sdk.md
 building:
+  - per-check-history-detail-view.md
 evaluating:
   - state-history.md
