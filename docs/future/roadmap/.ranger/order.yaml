@@ -4,8 +4,8 @@ horizon:
   - zrok-native-ingest-listener.md
   - embedding-sdk.md
 building:
-  - per-check-history-detail-view.md
 evaluating:
+  - per-check-history-detail-view.md
   - state-history.md
 researching:
   - virtual-host-with-ip-http-checks.md

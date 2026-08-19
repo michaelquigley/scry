@@ -1,6 +1,6 @@
 ---
 title: per-check history detail view
-state: building
+state: evaluating
 created: 2026-08-11
 tags: [feature]
 milestone: v0.1.x
@@ -10,7 +10,7 @@ log:
     note: docs/journal/2026-08-14.md
 ---
 
-A per-check detail view over the recorded history: longer horizons than the row strip's fixed 90 days, a zoomable window, and the transition list with each event's detail text. `GET /api/history` already serves arbitrary windows and carries per-event `kind` and `detail`, so this is render work — no daemon change is expected beyond what the strip already reads. The shape is settled in `docs/future/per-check-history-detail-view-spec.md`; implement per the companion work order.
+A per-check detail view over the recorded history: longer horizons than the row strip's fixed 90 days, a zoomable window, and the transition list with each event's detail text. `GET /api/history` already serves arbitrary windows and carries per-event `kind` and `detail`, so this is render work — no daemon change is expected beyond what the strip already reads. Realized 2026-08-19 across the work order's three stages; the shipped surface is described in `docs/current/dashboard.md`, and the spec and work order are retired (full text in git history).
 
 ## why
 
