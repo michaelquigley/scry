@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.0
+
 FEATURE: an optional `address` on http checks — a host:port dial-target override that redirects the probe's dial to an explicit endpoint while the URL's host keeps identifying the listener through the request's `Host` header and the TLS server name. That is the shape for validating an external listener from inside a network where the name resolves locally: the URL carries the name, `address` carries the public endpoint.
 
 FEATURE: per-check history detail — clicking a check's state strip opens a detail panel beneath its row, answering what the strip cannot: what actually happened, in order, in the daemon's own words. The panel draws a wider strip over a chosen window, a row of presets (`1d` through `1y`, plus `all`, defaulting to the strip's own 90 days), and the transition list — each row with its state change, the kind it fired under, how long the check held the state it left, and the detail the daemon recorded, interleaved with the daemon's own start and stop rows so a gap reads as nobody watching rather than as calm. At the default preset the panel renders the same document as the row beneath it, so the two can never disagree, and it rides the existing ten-second poll under its own dirty flag rather than a second timer. The row strip also moves its left edge to the check column, where a full-width band read as a rule drawn between checks rather than as data, and the page now sends its history window explicitly instead of relying on the daemon's default — which retires the few-millisecond sliver that used to open the strip's left edge.
