@@ -1,58 +1,147 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchHistory, fetchStatus, type StatusDocument } from './api/client'
 import { CheckTable } from './components/CheckTable'
 import { RollupBanner } from './components/RollupBanner'
-import { displayWindow, nextHistoryDirty, supersedes, type HistoryState } from './history'
+import {
+  defaultPreset,
+  detailLands,
+  detailSource,
+  displayWindow,
+  displayWindowMs,
+  nextHistoryDirty,
+  panelFetches,
+  pollPlan,
+  requestBounds,
+  supersedes,
+  vouchingCap,
+  type HistoryState,
+  type Preset,
+} from './history'
 import { formatDuration, formatTimestamp } from './util'
 
 const pollInterval = 10_000
 const agePulse = 1_000
 
-const emptyHistory: HistoryState = { document: null, startedUnder: null, dirty: true }
+const emptyHistory: HistoryState = {
+  document: null,
+  startedUnder: null,
+  dirty: true,
+  arrival: null,
+}
 
 export default function App() {
   const [status, setStatus] = useState<StatusDocument | null>(null)
   const [stale, setStale] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  // the history document, the daemon boot it was fetched under, and whether the
-  // page knows it is behind. the ref is what the poll loop reads; the state is
-  // what renders.
+  // the history document, the daemon boot it was fetched under, whether the
+  // page knows it is behind, and when it arrived. the ref is what the poll loop
+  // reads; the state is what renders.
   const [history, setHistory] = useState<HistoryState>(emptyHistory)
   const historyRef = useRef<HistoryState>(emptyHistory)
+  // the panel's own document, for every preset but the one that reuses the
+  // strip's. it carries the same four fields, because its list ages count from
+  // its own arrival, not the strip's and not the status document's.
+  const [detail, setDetail] = useState<HistoryState>(emptyHistory)
+  const detailRef = useRef<HistoryState>(emptyHistory)
   // the newest status document, which is what an arriving history document is
   // judged against — not whichever poll happened to dispatch the fetch.
   const statusRef = useRef<StatusDocument | null>(null)
-  // when the current document arrived, in the browser's clock frame; ages are
-  // the daemon's own spans plus how long this document has been on screen.
+  // when the current status document arrived, in the browser's clock frame.
   const [receivedAt, setReceivedAt] = useState<number | null>(null)
   // a heartbeat so every age on the page counts live between polls.
   const [now, setNow] = useState(() => Date.now())
+  // which check's panel is open, and over which window. both are mirrored into
+  // refs because the poll loop is created once and cannot see later state.
+  const [openCheck, setOpenCheck] = useState<string | null>(null)
+  const openRef = useRef<string | null>(null)
+  const [preset, setPreset] = useState<Preset>(defaultPreset)
+  const presetRef = useRef<Preset>(defaultPreset)
+  const abortRef = useRef<AbortController | null>(null)
+
+  const commitHistory = useCallback((next: HistoryState) => {
+    historyRef.current = next
+    setHistory(next)
+  }, [])
+
+  const commitDetail = useCallback((next: HistoryState) => {
+    detailRef.current = next
+    setDetail(next)
+  }, [])
+
+  // refreshDetail is the panel's own fetch. the dirty level is maintained on
+  // every successful poll whether or not the panel is open — a closed panel may
+  // hold an obsolete document but may not let it age clean — and only the fetch
+  // is gated here, because a closed panel has nothing to render and the default
+  // preset has no second document to fetch.
+  const refreshDetail = useCallback(async () => {
+    const controller = abortRef.current
+    const dispatchedUnder = statusRef.current
+    const chosen = presetRef.current
+    if (controller === null || dispatchedUnder === null) {
+      return
+    }
+    if (!panelFetches(openRef.current !== null, chosen)) {
+      return
+    }
+    if (!detailRef.current.dirty) {
+      return
+    }
+    // the flag is committed before the request, exactly as the strip's is.
+    commitDetail({ ...detailRef.current, dirty: true })
+    const bounds = requestBounds(chosen, dispatchedUnder.generated)
+    try {
+      const recorded = await fetchHistory(controller.signal, bounds.from, bounds.to)
+      // the two landing conditions, both judged against what the page asks for
+      // now rather than what this request was dispatched under. a mismatch of
+      // either kind is ignored outright: the held document stands and so does
+      // the dirty flag, which the next poll retries.
+      if (!detailLands(recorded, presetRef.current, statusRef.current)) {
+        return
+      }
+      if (!supersedes(detailRef.current.document, recorded)) {
+        return
+      }
+      const arrived: HistoryState = {
+        document: recorded,
+        startedUnder: dispatchedUnder.started,
+        dirty: false,
+        arrival: Date.now(),
+      }
+      commitDetail({ ...arrived, dirty: nextHistoryDirty(arrived, statusRef.current, 'none') })
+    } catch {
+      // a failed fetch commits nothing. the flag was committed dirty before the
+      // request, and only a document that lands and revalidates ever clears it,
+      // so a failure of this request leaves the level exactly where it belongs:
+      // still set if nothing landed meanwhile, and clear if a newer response
+      // did — which this older failure has no standing to overturn.
+    }
+  }, [commitDetail])
 
   useEffect(() => {
     const controller = new AbortController()
+    abortRef.current = controller
 
-    const commit = (next: HistoryState) => {
-      historyRef.current = next
-      setHistory(next)
-    }
-
-    // history rides the status cadence: every successful poll retries while the
-    // dirty flag is set, so a quiet estate refetches never and no second timer
-    // exists.
-    const refresh = async (document: StatusDocument) => {
-      if (!nextHistoryDirty(historyRef.current, document, 'none')) {
-        return
-      }
-      // the flag is committed before the request, not after it: the page has
-      // already decided the held document is obsolete, and it must not paint
-      // confident state across that span while the refetch is in flight.
-      commit({ ...historyRef.current, dirty: true })
+    // the strip's fetch. it needs no landing rule: its display window is
+    // anchored to the status document's own stamp, so a response older than the
+    // newest status only shortens the history-vouched coverage, and the span
+    // beyond it is vouched by the status testimony.
+    const refreshStrip = async (dispatchedUnder: StatusDocument) => {
       try {
-        const recorded = await fetchHistory(controller.signal)
+        // the strip asks for its own display window rather than the daemon's
+        // default, so the two documents describe the same span to the
+        // millisecond and nothing is left over at the left edge. to never
+        // passes the daemon's clock in the normal flow, because the status poll
+        // precedes this request inside one loop iteration; a backwards host
+        // clock between the two reads surfaces as a 400, which is a failed
+        // fetch, which the dirty flag already retries.
+        const to = dispatchedUnder.generated
+        const from = new Date(Date.parse(to) - displayWindowMs).toISOString()
+        const recorded = await fetchHistory(controller.signal, from, to)
         // the poll timer does not await its predecessor, so two fetches can be
-        // in flight and land out of order. the document's own watermark orders
-        // them: a response older than the one already held is superseded, and
-        // ignoring it leaves the newer document and the dirty flag alone.
+        // in flight and land out of order. the end of the coverage each
+        // document serves orders them: a response covering less than the one
+        // already held is superseded, and ignoring it leaves the newer document
+        // and the dirty flag alone.
         if (supersedes(historyRef.current.document, recorded)) {
           // the flag is level-triggered, so it is decided against the newest
           // status the page has — not against the poll that dispatched this
@@ -60,17 +149,16 @@ export default function App() {
           // and stays dirty rather than clearing on a stale decision.
           const arrived: HistoryState = {
             document: recorded,
-            startedUnder: document.started,
+            startedUnder: dispatchedUnder.started,
             dirty: false,
+            arrival: Date.now(),
           }
-          commit({ ...arrived, dirty: nextHistoryDirty(arrived, statusRef.current, 'none') })
+          commitHistory({ ...arrived, dirty: nextHistoryDirty(arrived, statusRef.current, 'none') })
         }
       } catch {
-        if (!controller.signal.aborted) {
-          // a failed fetch keeps the last document, the same stale posture the
-          // status document has.
-          commit({ ...historyRef.current, dirty: true })
-        }
+        // as above: the level was set before dispatch and a failure disturbs
+        // nothing. dirtying the held document here would let a slow request's
+        // failure hatch the vouched tail of a newer one that already landed.
       }
     }
 
@@ -83,7 +171,34 @@ export default function App() {
         setStatus(document)
         setReceivedAt(Date.now())
         setStale(false)
-        await refresh(document)
+
+        // one pre-request block. both dirty levels are evaluated against this
+        // poll's document and both flags committed before either request is
+        // dispatched, so neither surface may extend obsolete state during the
+        // other's in-flight fetch — and no panel request is dispatched from an
+        // obsolete status stamp, which the landing rule would reject and which
+        // would leave the panel flapping behind the strip.
+        const plan = pollPlan({
+          strip: historyRef.current,
+          panel: detailRef.current,
+          status: document,
+          panelOpen: openRef.current !== null,
+          preset: presetRef.current,
+        })
+        if (plan.stripDirty && !historyRef.current.dirty) {
+          commitHistory({ ...historyRef.current, dirty: true })
+        }
+        if (plan.panelDirty && !detailRef.current.dirty) {
+          commitDetail({ ...detailRef.current, dirty: true })
+        }
+        const dispatched: Promise<void>[] = []
+        if (plan.fetchStrip) {
+          dispatched.push(refreshStrip(document))
+        }
+        if (plan.fetchPanel) {
+          dispatched.push(refreshDetail())
+        }
+        await Promise.all(dispatched)
       } catch {
         if (controller.signal.aborted) {
           return
@@ -101,12 +216,24 @@ export default function App() {
     const pulse = window.setInterval(() => setNow(Date.now()), agePulse)
     return () => {
       controller.abort()
+      abortRef.current = null
       window.clearInterval(timer)
       window.clearInterval(pulse)
     }
-  }, [])
+  }, [commitDetail, commitHistory, refreshDetail])
+
+  // opening a panel whose flag went dirty during closure kicks the fetch at
+  // once, exactly as a preset change does.
+  useEffect(() => {
+    openRef.current = openCheck
+    presetRef.current = preset
+    void refreshDetail()
+  }, [openCheck, preset, refreshDetail])
 
   const ageOffset = receivedAt === null ? 0 : Math.max(0, now - receivedAt)
+  // the page's one vouching cap, computed once and handed to every window it
+  // derives, so no two surfaces can cap differently.
+  const staleCap = vouchingCap(status, stale)
   const estate = status?.estate ?? 'scry'
 
   useEffect(() => {
@@ -117,11 +244,43 @@ export default function App() {
     ? displayWindow({
         status,
         ageOffset,
-        stale,
+        staleCap,
         history: history.document,
         historyDirty: history.dirty,
       })
     : null
+
+  const source =
+    openCheck === null
+      ? null
+      : detailSource({ preset, strip: history, stripWindow: strip, panel: detail, now, staleCap })
+
+  const choosePreset = (next: Preset) => {
+    if (next === preset) {
+      return
+    }
+    // the ref moves first, and synchronously. the landing rule judges an
+    // arriving response against what the page asks for *now*, so that answer
+    // may never lag the abandonment it is judging: a response resolving between
+    // this click and the effect below would otherwise be read against the
+    // preset just left, land clean, and leave the new window rendering from a
+    // document that never covered it — with the flag clear, so nothing refetches.
+    presetRef.current = next
+    // a preset change abandons the held document and dirties the flag. the
+    // response already in the air for the old window cannot land: its echoed
+    // bounds no longer carry the shape the page asks for.
+    commitDetail(emptyHistory)
+    setPreset(next)
+  }
+
+  const toggleCheck = (id: string) => {
+    const next = openCheck === id ? null : id
+    // open state gates only the dispatch, never a landing, so a stale ref here
+    // is harmless — but both refs moving with the click is one rule instead of
+    // two cases to reason about.
+    openRef.current = next
+    setOpenCheck(next)
+  }
 
   return (
     <main>
@@ -149,6 +308,12 @@ export default function App() {
             ageOffset={ageOffset}
             history={history.document}
             window={strip}
+            openCheck={openCheck}
+            onToggle={toggleCheck}
+            source={source}
+            preset={preset}
+            onPreset={choosePreset}
+            now={now}
           />
         </>
       ) : (

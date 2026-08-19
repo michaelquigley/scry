@@ -183,12 +183,14 @@ describe('the interval builder', () => {
   })
 
   test('caps at a dirty document rather than claiming its stale tail', () => {
-    const history = document({ generated: iso(day(88)) })
+    // the cap is the coverage the document served, not the stamp it was
+    // rendered under: generated postdates to once the page sends bounds.
+    const history = document({ to: iso(day(88)), generated: iso(day(88) + 40) })
     const check = entry({ state_at_from: 'ok', state_at_to: 'ok', since: iso(day(-10)) })
     const window = displayWindow({
       status: { generated: iso(right), started: iso(day(0)), checks: [] } as unknown as StatusDocument,
       ageOffset: 0,
-      stale: false,
+      staleCap: null,
       history,
       historyDirty: true,
     })
@@ -211,11 +213,12 @@ describe('the interval builder', () => {
     ])
   })
 
-  test('claims nothing before the document it is drawn from begins', () => {
-    // the status and history documents are fetched in sequence, so the
-    // status-derived left edge opens before the history window does until the
-    // next pulse closes the difference.
-    const history = document({ from: iso(left + 20), generated: iso(right + 20) })
+  test('claims nothing before a document that opens after the display does', () => {
+    // no path through the app builds this anymore: the strip's fetch sends the
+    // display's own bounds, so the document opens exactly where the display
+    // does and the left edge only advances into covered territory. the rule is
+    // still the rule for any document handed a window it does not span.
+    const history = document({ from: iso(left + 20), to: iso(right + 20), generated: iso(right + 40) })
     const check = entry({ state_at_from: 'ok', state_at_to: 'ok', since: iso(day(-10)) })
 
     const intervals = buildStrip(history, check, fullWindow())
@@ -311,45 +314,78 @@ describe('the display window', () => {
   const status = { generated: iso(day(80)), started: iso(day(0)), checks: [] } as unknown as StatusDocument
 
   test('slides with the page pulse', () => {
-    const window = displayWindow({ status, ageOffset: 5_000, stale: false, history: null, historyDirty: false })
+    const window = displayWindow({ status, ageOffset: 5_000, staleCap: null, history: null, historyDirty: false })
     expect(window.right).toBe(day(80) + 5_000)
     expect(window.left).toBe(window.right - displayWindowMs)
     expect(window.vouchedThrough).toBe(window.right)
   })
 
-  test('caps at the earlier of a stale status and a dirty history', () => {
-    const history = document({ generated: iso(day(70)) })
-    const window = displayWindow({ status, ageOffset: 60_000, stale: true, history, historyDirty: true })
+  test('vouches to its own right edge when the shared cap is absent', () => {
+    const history = document({ to: iso(day(70)), generated: iso(day(70) + 40) })
+    const window = displayWindow({ status, ageOffset: 60_000, staleCap: null, history, historyDirty: false })
+    expect(window.vouchedThrough).toBe(window.right)
+  })
+
+  test('caps at the shared stale cap while polling is failing', () => {
+    const window = displayWindow({
+      status,
+      ageOffset: 60_000,
+      staleCap: day(80),
+      history: null,
+      historyDirty: false,
+    })
+    expect(window.vouchedThrough).toBe(day(80))
+  })
+
+  test('caps at the earlier of the shared stale cap and a dirty document', () => {
+    const history = document({ to: iso(day(70)), generated: iso(day(70) + 40) })
+    const window = displayWindow({
+      status,
+      ageOffset: 60_000,
+      staleCap: day(80),
+      history,
+      historyDirty: true,
+    })
     expect(window.vouchedThrough).toBe(day(70))
   })
 })
 
 describe('out-of-order responses', () => {
-  const held = document({ generated: iso(day(80)) })
+  const held = document({ to: iso(day(80)), generated: iso(day(80) + 40) })
 
   test('the first document to arrive is always taken', () => {
     expect(supersedes(null, held)).toBe(true)
   })
 
-  test('a newer document replaces the one held', () => {
-    expect(supersedes(held, document({ generated: iso(day(81)) }))).toBe(true)
+  test('a document covering more replaces the one held', () => {
+    expect(supersedes(held, document({ to: iso(day(81)) }))).toBe(true)
   })
 
   test('a response that lost the race is ignored', () => {
-    expect(supersedes(held, document({ generated: iso(day(79)) }))).toBe(false)
+    expect(supersedes(held, document({ to: iso(day(79)) }))).toBe(false)
   })
 
   test('an equal watermark is not stale, so a quiet page cannot stick dirty', () => {
-    expect(supersedes(held, document({ generated: iso(day(80)) }))).toBe(true)
+    expect(supersedes(held, document({ to: iso(day(80)) }))).toBe(true)
+  })
+
+  test('orders by the coverage served, not by the stamp it was rendered under', () => {
+    // a response whose window ends earlier lost the race however late the
+    // daemon read its clock to stamp it.
+    const arriving = document({ to: iso(day(79)), generated: iso(day(82)) })
+    expect(supersedes(held, arriving)).toBe(false)
   })
 })
 
 describe('the dirty flag', () => {
   const started = iso(day(0))
+  // the document's coverage ends at day 80; the daemon read its clock again
+  // 40ms later to stamp it, so generated is not the bound anything compares to.
   const held: HistoryState = {
-    document: document({ generated: iso(day(80)) }),
+    document: document({ to: iso(day(80)), generated: iso(day(80) + 40) }),
     startedUnder: started,
     dirty: false,
+    arrival: day(80),
   }
 
   function status(overrides: Partial<StatusDocument> = {}): StatusDocument {
@@ -363,66 +399,93 @@ describe('the dirty flag', () => {
     } as StatusDocument
   }
 
+  function check(overrides: Partial<StatusDocument['checks'][number]> = {}) {
+    return {
+      id: 'web',
+      name: 'web',
+      kind: 'http',
+      state: 'failed',
+      since: iso(day(79)),
+      last_transition: iso(day(79)),
+      last_seen: null,
+      detail: 'down',
+      ...overrides,
+    } as StatusDocument['checks'][number]
+  }
+
   test('is set at first load, when no document exists yet', () => {
-    expect(nextHistoryDirty({ document: null, startedUnder: null, dirty: false }, status(), 'none')).toBe(true)
+    expect(nextHistoryDirty({ document: null, startedUnder: null, dirty: false, arrival: null }, status(), 'none')).toBe(true)
   })
 
   test('is set by a transition newer than the held document', () => {
-    const polled = status({
-      checks: [
-        {
-          id: 'web',
-          name: 'web',
-          kind: 'http',
-          state: 'failed',
-          since: iso(day(81)),
-          last_transition: iso(day(81)),
-          last_seen: null,
-          detail: 'down',
-        },
-      ],
-    })
+    const polled = status({ checks: [check({ since: iso(day(81)), last_transition: iso(day(81)) })] })
     expect(nextHistoryDirty(held, polled, 'none')).toBe(true)
   })
 
   test('ignores a transition the held document already covers', () => {
-    const polled = status({
-      checks: [
-        {
-          id: 'web',
-          name: 'web',
-          kind: 'http',
-          state: 'failed',
-          since: iso(day(79)),
-          last_transition: iso(day(79)),
-          last_seen: null,
-          detail: 'down',
-        },
-      ],
-    })
-    expect(nextHistoryDirty(held, polled, 'none')).toBe(false)
+    expect(nextHistoryDirty(held, status({ checks: [check()] }), 'none')).toBe(false)
+  })
+
+  test('is set by a transition after the coverage but before the stamp', () => {
+    // the daemon resolved the window, then read its clock again to stamp the
+    // response. a transition landing in between is outside the testimony and
+    // the old generated comparison would have called the document current
+    // forever.
+    const at = iso(day(80) + 20)
+    const polled = status({ checks: [check({ since: at, last_transition: at })] })
+    expect(nextHistoryDirty(held, polled, 'none')).toBe(true)
+  })
+
+  test('is set by a transition whose wire stamp reads equal to the bound', () => {
+    // the contract truncates to whole seconds, so an instant reading equal to
+    // to may be newer in truth. equality is the case that must dirty.
+    const polled = status({ checks: [check({ since: iso(day(80)), last_transition: iso(day(80)) })] })
+    expect(nextHistoryDirty(held, polled, 'none')).toBe(true)
   })
 
   test('is set by a registration, which carries no transition to notice it by', () => {
     const polled = status({
-      checks: [
-        {
-          id: 'new',
-          name: 'new',
-          kind: 'http',
-          state: 'ok',
-          since: iso(day(81)),
-          last_transition: null,
-          last_seen: null,
-          detail: null,
-        },
-      ],
+      checks: [check({ id: 'new', name: 'new', state: 'ok', since: iso(day(81)), last_transition: null, detail: null })],
+    })
+    expect(nextHistoryDirty(held, polled, 'none')).toBe(true)
+  })
+
+  test('is set by a registration whose wire stamp reads equal to the bound', () => {
+    const polled = status({
+      checks: [check({ id: 'new', name: 'new', state: 'ok', since: iso(day(80)), last_transition: null, detail: null })],
     })
     expect(nextHistoryDirty(held, polled, 'none')).toBe(true)
   })
 
   test('is set by a restart no transition would reveal', () => {
     expect(nextHistoryDirty(held, status({ started: iso(day(79)) }), 'none')).toBe(true)
+  })
+
+  test('is set by a boot whose wire stamp reads equal to the bound', () => {
+    // the same truncation folds a restart into the bound's own second, and the
+    // document was fetched under that very boot — so the not-fetched-under
+    // equality sees nothing and only the at-or-after arm catches it.
+    const at = iso(day(80))
+    const fresh: HistoryState = { ...held, startedUnder: at }
+    expect(nextHistoryDirty(fresh, status({ started: at }), 'none')).toBe(true)
+  })
+
+  test('clears once the next poll fetches under a later bound', () => {
+    // the false positive costs one poll interval: the refetch sends to = the
+    // newer status stamp, and the same twins now sit strictly inside coverage.
+    const at = iso(day(80))
+    const landed: HistoryState = {
+      document: document({ to: iso(day(80) + 10_000), generated: iso(day(80) + 10_040) }),
+      startedUnder: at,
+      dirty: false,
+      arrival: day(80) + 10_000,
+    }
+    const polled = status({
+      generated: iso(day(80) + 10_000),
+      started: at,
+      checks: [check({ since: at, last_transition: at })],
+    })
+    expect(nextHistoryDirty(landed, polled, 'none')).toBe(false)
   })
 
   test('is set by a failed fetch and stays set across quiet polls', () => {

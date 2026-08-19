@@ -22,8 +22,10 @@ export function formatDuration(elapsed: number): string {
   return `${Math.floor(elapsed / day)}d ${Math.floor((elapsed % day) / hour)}h`
 }
 
-// formatTimestamp renders an API timestamp in the viewer's local zone.
-export function formatTimestamp(value: string): string {
+// formatTimestamp renders an API timestamp in the viewer's local zone. the year
+// is carried only when the caller asks for it, so the page's default form stays
+// the compact one every row strip and header already reads in.
+export function formatTimestamp(value: string, withYear = false): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
     return value
@@ -31,9 +33,22 @@ export function formatTimestamp(value: string): string {
   return parsed.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
+    ...(withYear ? { year: 'numeric' } : {}),
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+// outsideCurrentYear decides whether a timestamp must carry its year: the 1y
+// and all presets put events in the list that "Jan 15, 03:10" cannot place, and
+// an event in the viewer's own calendar year is unambiguous without it. both
+// sides are read in the viewer's local zone, as the rest of the page is.
+export function outsideCurrentYear(value: string, now: number): boolean {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return false
+  }
+  return parsed.getFullYear() !== new Date(now).getFullYear()
 }
 
 // elapsedSince measures one timestamp against another, both as API strings.
@@ -51,10 +66,15 @@ export function elapsedSince(from: string, to: string): number {
 // since the document arrived. each term stays in its own clock frame, so ages
 // tick live without mixing daemon and browser clocks. an unmeasurable age
 // degrades to the bare timestamp.
-export function formatTimestampWithAge(value: string, reference: string, extraMs = 0): string {
+export function formatTimestampWithAge(
+  value: string,
+  reference: string,
+  extraMs = 0,
+  withYear = false,
+): string {
   const elapsed = elapsedSince(value, reference)
   if (Number.isNaN(elapsed) || elapsed + extraMs < 0) {
-    return formatTimestamp(value)
+    return formatTimestamp(value, withYear)
   }
-  return `${formatTimestamp(value)} · ${formatDuration(elapsed + extraMs)} ago`
+  return `${formatTimestamp(value, withYear)} · ${formatDuration(elapsed + extraMs)} ago`
 }

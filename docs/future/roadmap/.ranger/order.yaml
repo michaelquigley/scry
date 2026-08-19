@@ -7,3 +7,5 @@ building:
   - per-check-history-detail-view.md
 evaluating:
   - state-history.md
+researching:
+  - virtual-host-with-ip-http-checks.md

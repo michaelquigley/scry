@@ -316,3 +316,155 @@ h1 {
   color: var(--accent);
   text-decoration: underline;
 }
+
+/* the strip is the panel's toggle: a focusable control that keeps the band
+   geometry untouched, so the affordance is the strip itself rather than chrome
+   around it. */
+.strip-toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.strip-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.strip-toggle:hover .strip {
+  background: rgba(109, 124, 121, 0.18);
+}
+
+/* the detail panel: the same left edge as the strip it grew out of, so the
+   page's two history surfaces read as one. */
+.check-detail-row td {
+  padding: 0 0.75rem 1rem;
+}
+
+.detail-panel {
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+/* the panel's strip is the row strip zoomed: same geometry, more of it. */
+.detail-strip .strip {
+  height: 1.1rem;
+  border-radius: 4px;
+}
+
+.detail-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+
+/* presets speak the chip's machine-type language; the chosen one carries the
+   accent, so the window in force reads at a glance. */
+.detail-preset {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.detail-preset:hover {
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.detail-preset[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(12, 74, 110, 0.09);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.detail-preset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.detail-events {
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail-event {
+  display: grid;
+  grid-template-columns: 12rem auto 1fr;
+  align-items: baseline;
+  gap: 0.3rem 0.75rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.8rem;
+}
+
+.detail-event:first-child {
+  border-top: 0;
+}
+
+.detail-when {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.detail-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.detail-change .chip {
+  min-width: 3.4rem;
+  font-size: 0.68rem;
+}
+
+.detail-arrow {
+  color: var(--ink-muted);
+}
+
+.detail-kind,
+.detail-for {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.detail-detail {
+  grid-column: 2 / -1;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* the daemon's rows are the estate's, not the check's: they belong in the
+   chronology and read quieter than the transitions they sit between. */
+.detail-event-daemon .detail-daemon {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.detail-empty {
+  margin: 0.9rem 0 0;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}

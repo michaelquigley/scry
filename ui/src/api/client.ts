@@ -26,11 +26,23 @@ export async function fetchStatus(signal: AbortSignal): Promise<StatusDocument> 
   return (await response.json()) as StatusDocument
 }
 
-// fetchHistory reads the recorded history document. it sends no bounds: the
-// daemon's defaults are the page's window, resolved inside the one cut that
-// stamps the document.
-export async function fetchHistory(signal: AbortSignal): Promise<HistoryDocument> {
-  const response = await fetch(historyPath, {
+// fetchHistory reads the recorded history document over an explicit window.
+// both bounds are RFC3339 UTC strings; either one omitted asks the daemon for
+// its own default on that side, which is what a parameterless call means.
+export async function fetchHistory(
+  signal: AbortSignal,
+  from?: string,
+  to?: string,
+): Promise<HistoryDocument> {
+  const query = new URLSearchParams()
+  if (from !== undefined) {
+    query.set('from', from)
+  }
+  if (to !== undefined) {
+    query.set('to', to)
+  }
+  const search = query.toString()
+  const response = await fetch(search === '' ? historyPath : `${historyPath}?${search}`, {
     signal,
     headers: { accept: 'application/json' },
   })
