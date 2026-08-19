@@ -5,7 +5,7 @@ horizon:
   - embedding-sdk.md
 building:
 evaluating:
+  - virtual-host-with-ip-http-checks.md
   - per-check-history-detail-view.md
   - state-history.md
 researching:
-  - virtual-host-with-ip-http-checks.md

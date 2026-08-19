@@ -94,6 +94,7 @@ checks:
     name: "web"
     http:
       url: "https://web.example.com/"
+      address: "192.0.2.10:8443"
     interval: 30s
 `)
 	explicitPath := filepath.Join(root, "explicit.yaml")
@@ -121,6 +122,9 @@ history_dir: "/var/lib/scry/history"
 	}
 	if len(cfg.Checks) != 1 || cfg.Checks[0].EffectiveInterval(cfg.Defaults) != 30*time.Second {
 		t.Fatalf("check override: %+v", cfg.Checks)
+	}
+	if cfg.Checks[0].HTTP.Address != "192.0.2.10:8443" {
+		t.Errorf("http address binding: %+v", cfg.Checks[0].HTTP)
 	}
 	if cfg.Checks[0].EffectiveTimeout(cfg.Defaults) != 20*time.Second {
 		t.Errorf("inherited timeout: %s", cfg.Checks[0].EffectiveTimeout(cfg.Defaults))
@@ -189,6 +193,9 @@ func TestValidateRejections(t *testing.T) {
 		{"unsupported http scheme", func(c *Config) { c.Checks[0].HTTP.URL = "ftp://service.example.com" }, "http.url"},
 		{"low expect code", func(c *Config) { c.Checks[0].HTTP.Expect = []int{99} }, "between 100 and 599"},
 		{"high expect code", func(c *Config) { c.Checks[0].HTTP.Expect = []int{600} }, "between 100 and 599"},
+		{"malformed http address", func(c *Config) { c.Checks[0].HTTP.Address = "service" }, "host:port"},
+		{"nonnumeric http port", func(c *Config) { c.Checks[0].HTTP.Address = "service:web" }, "numeric port"},
+		{"empty http address host", func(c *Config) { c.Checks[0].HTTP.Address = ":80" }, "http.address"},
 		{"malformed tcp address", func(c *Config) {
 			c.Checks[0].HTTP = nil
 			c.Checks[0].TCP = &TCPConfig{Address: "host"}

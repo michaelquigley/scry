@@ -24,6 +24,8 @@ checks:
 
 An HTTP check performs a GET and judges the first response without following redirects. With no `expect` list, every 2xx response is `ok`. When `expect` is present, only the listed status codes are `ok`; this can deliberately accept a redirect or error status. Any other response produces `failed` with its status code in the detail.
 
+By default the probe dials the URL's host and port. An optional `address` overrides only the dial target with a `host:port` value: the connection lands on that address while the URL's host still identifies the listener — it is the request's `Host` header and, over TLS, the server name the certificate is checked against. An explicit `address` bypasses proxy environment variables, because a proxy in between would defeat the override. That is the shape for a name that resolves differently inside the monitoring network: the URL carries the name and `address` carries the external endpoint, so a probe run from inside the network speaks to the listener an outside user reaches.
+
 TLS certificates are verified by default. `insecure: true` is an explicit per-check escape hatch for self-signed estate endpoints.
 
 ```yaml
@@ -34,6 +36,13 @@ checks:
       url: "https://example.test/health"
       expect: [200, 204]
       insecure: false
+    interval: 60s
+    timeout: 10s
+  - id: chat-external
+    name: chat external listener
+    http:
+      url: "https://chat.quigley.com/health"
+      address: "203.0.113.40:443"
     interval: 60s
     timeout: 10s
 ```

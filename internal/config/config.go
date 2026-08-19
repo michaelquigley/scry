@@ -100,6 +100,7 @@ type PassiveConfig struct {
 // HTTPConfig describes an HTTP status probe.
 type HTTPConfig struct {
 	URL      string `dd:"url"`
+	Address  string `dd:"address"`
 	Expect   []int  `dd:"expect"`
 	Insecure bool   `dd:"insecure"`
 }
@@ -392,6 +393,15 @@ func validateHTTP(checkID string, cfg *HTTPConfig) error {
 	parsed, err := url.Parse(cfg.URL)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return fmt.Errorf("check %q: http.url must be an http or https URL", checkID)
+	}
+	if cfg.Address != "" {
+		host, _, err := splitNumericAddress(cfg.Address)
+		if err != nil {
+			return fmt.Errorf("check %q: http.address: %w", checkID, err)
+		}
+		if strings.TrimSpace(host) == "" {
+			return fmt.Errorf("check %q: http.address host is required", checkID)
+		}
 	}
 	for _, code := range cfg.Expect {
 		if code < 100 || code > 599 {

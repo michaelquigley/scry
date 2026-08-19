@@ -1,6 +1,6 @@
 ---
 title: virtual host with ip http checks
-state: researching
+state: evaluating
 created: 2026-08-19
 tags: [feature, spike]
 milestone: v0.1.x

@@ -110,6 +110,7 @@ func configuredActiveChecks(cfg *config.Config) []engine.ActiveCheck {
 				configured.HTTP.URL,
 				configured.HTTP.Expect,
 				configured.HTTP.Insecure,
+				configured.HTTP.Address,
 			)
 		case configured.TCP != nil:
 			evaluator = strategy.NewTCP(configured.TCP.Address)

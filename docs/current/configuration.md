@@ -35,7 +35,7 @@ defaults:
 Each check has a lowercase slug id, a display name, and exactly one strategy block:
 
 - `passive` requires a positive `period`, positive `grace`, and a non-empty token unique among passive checks;
-- `http` requires an absolute `http` or `https` URL and optional expected status codes in the range 100–599;
+- `http` requires an absolute `http` or `https` URL, an optional `address` in host:port form that overrides only the dial target, and optional expected status codes in the range 100–599;
 - `tcp` requires a host and numeric port.
 
 Active checks inherit `interval`, `timeout`, and `fail_after`; passive checks inherit `harden_after`. Per-check fields override the global defaults. An omitted override inherits, while an explicitly authored zero or out-of-range value is invalid.
