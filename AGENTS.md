@@ -26,9 +26,10 @@ The seam census is load-bearing (`docs/current/seam-census.md` is the full recor
 make generate
 make test
 make build
+make headless
 ```
 
-`make build` creates the React frontend before installing the Go binary, so the embedded `ui/dist` tree always exists. `go build -tags no_ui ./cmd/scry` is the headless seam.
+`make build` creates the React frontend before installing the Go module, so the embedded `ui/dist` tree always exists. `make test` runs the full ordinary gate — frontend build and Vitest, then the Go suite and vet. `make headless` installs the whole module with the `no_ui` tag.
 
 The API is contract-first: edit `internal/api/specs/scry.yml`, run `make generate`, and never hand-edit generated ogen or TypeScript schema files.
 

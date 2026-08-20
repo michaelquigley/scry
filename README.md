@@ -11,7 +11,7 @@ make test
 make build
 ```
 
-The binary installs to `$(go env GOPATH)/bin/scry`. Use `go build -tags no_ui ./cmd/scry` for a headless build. `make generate` regenerates the API server and the dashboard's client types from the committed contract in `internal/api/specs/scry.yml`.
+The binary installs to `$(go env GOPATH)/bin/scry`. Use `make headless` for a headless install. `make test` runs the frontend build and Vitest before the Go suite and vet. `make generate` regenerates the API server and the dashboard's client types from the committed contract in `internal/api/specs/scry.yml`.
 
 ## Configuration
 
