@@ -1,4 +1,5 @@
 horizon:
+  - fold-response-bodies-into-http-failure-detail.md
   - agent-strategy-and-reference-agent.md
   - mcp-status-reader.md
   - zrok-native-ingest-listener.md
