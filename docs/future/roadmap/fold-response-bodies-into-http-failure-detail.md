@@ -1,8 +1,9 @@
 ---
 title: fold response bodies into http failure detail
-state: horizon
+state: researching
 created: 2026-08-20
 tags: [enhancement]
+milestone: v0.1.x
 source: archive docs/journal/2026-08-20.md (health check endpoints session)
 ---
 

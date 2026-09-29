@@ -1,5 +1,4 @@
 horizon:
-  - fold-response-bodies-into-http-failure-detail.md
   - agent-strategy-and-reference-agent.md
   - mcp-status-reader.md
   - zrok-native-ingest-listener.md
@@ -10,3 +9,6 @@ evaluating:
   - per-check-history-detail-view.md
   - state-history.md
 researching:
+  - layout-compaction.md
+  - separate-detail-pages.md
+  - fold-response-bodies-into-http-failure-detail.md
