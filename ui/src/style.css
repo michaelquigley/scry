@@ -132,10 +132,11 @@ h1 {
   letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .checks td {
-  padding: 0.7rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   vertical-align: top;
 }
 
@@ -168,9 +169,6 @@ h1 {
 /* the state strip: exact proportional bands across a fixed window. the track
    is what shows through where a check did not yet exist, so blank reads as
    absence of a thing rather than absence of information. */
-.check-strip-row td {
-  padding: 0 0.75rem 0.7rem;
-}
 
 .strip {
   position: relative;
@@ -239,6 +237,41 @@ h1 {
 
 .check-name {
   font-weight: 500;
+}
+
+/* in the table a check's name and id hold their own width, so the column is as
+   wide as the estate's longest name and the rows stay two lines tall; the
+   detail column is the one that gives. */
+.checks .check-name,
+.checks .check-id {
+  white-space: nowrap;
+}
+
+/* the detail column takes whatever width the others leave and holds one line,
+   cut with an ellipsis, so a long error never makes its row taller than its
+   neighbors. the zero max-width is what lets a table cell be narrower than its
+   own unwrapped content; without it the string would widen the table. */
+.checks .detail {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.detail-link:hover {
+  color: var(--accent);
+}
+
+.detail-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 3px;
 }
 
 .check-id,
@@ -323,6 +356,22 @@ h1 {
 .strip-link {
   display: block;
   border-radius: 3px;
+}
+
+/* in the estate's table the strip rides the row's first line: the link is one
+   line box tall with the strip centered in it, so the band sits level with the
+   chip and the check's name, and the whole line height is the target. the
+   width is a floor rather than a hint, because the strip's bands are placed
+   absolutely and give the column no content width of their own to hold. */
+.checks .strip-link {
+  display: flex;
+  align-items: center;
+  min-width: 11rem;
+  height: 1.55em;
+}
+
+.checks .strip-link .strip {
+  flex: 1;
 }
 
 .strip-link:focus-visible {
@@ -469,9 +518,12 @@ a.check-name:focus-visible,
   list-style: none;
 }
 
+/* the first column holds the longest stamp the list can carry — a timestamp
+   with its year and a three-digit age in days — so every row's chips start on
+   one edge whatever the age beside them reads. */
 .detail-event {
   display: grid;
-  grid-template-columns: 12rem auto 1fr;
+  grid-template-columns: 17.5rem auto 1fr;
   align-items: baseline;
   gap: 0.3rem 0.75rem;
   padding: 0.45rem 0;

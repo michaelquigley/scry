@@ -1,7 +1,7 @@
 import type { Check } from '../api/client'
 import type { DetailSource, Preset } from '../history'
 import { estateHref } from '../route'
-import { elapsedSince, formatDuration, formatTimestampWithAge } from '../util'
+import { elapsedSince, formatDuration, formatTimestamp, outsideCurrentYear } from '../util'
 import { DetailPanel } from './DetailPanel'
 import { RouteLink } from './RouteLink'
 
@@ -29,6 +29,7 @@ export function CheckPage({
   source: DetailSource | null
   preset: Preset
   onPreset: (preset: Preset) => void
+  // the page's live pulse, in the browser's clock frame.
   now: number
 }) {
   const entry = source?.document.checks.find((recorded) => recorded.id === id)
@@ -55,11 +56,20 @@ export function CheckPage({
               <dt>in state</dt>
               <dd>{formatDuration(elapsedSince(check.since, generated) + ageOffset)}</dd>
             </div>
+            {/* the stamp stands without an age, the one place on the page it
+                does. when a check has a last transition the daemon holds it as
+                the same instant its current state began, so the in-state span
+                beside it is that age already. bare of its age, a stamp from
+                another year has nothing else to place it, so it carries the
+                year. */}
             <div>
               <dt>last transition</dt>
               <dd>
                 {check.last_transition
-                  ? formatTimestampWithAge(check.last_transition, generated, ageOffset)
+                  ? formatTimestamp(
+                      check.last_transition,
+                      outsideCurrentYear(check.last_transition, now),
+                    )
                   : '—'}
               </dd>
             </div>
