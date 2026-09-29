@@ -9,6 +9,5 @@ evaluating:
   - per-check-history-detail-view.md
   - state-history.md
 researching:
-  - layout-compaction.md
-  - separate-detail-pages.md
   - fold-response-bodies-into-http-failure-detail.md
+  - uptime-calculation.md
