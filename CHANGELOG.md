@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+CHANGE: a check's history detail moves from a panel expanding beneath its row to a page of its own at `/check/<id>`, reached by the check's name or its strip. The page leads with what the estate's row says about the check and draws the same wider strip, window presets, and transition list beneath it; the estate table no longer changes height under the reader, and a check's detail can be linked, reloaded, opened in its own tab, and left with the back button. The status listener answers the dashboard's index for that one route, matched by the check id's shape alone — there is still no general single-page fallback, so every other unknown path stays a genuine 404, and the ingest listener answers 404 for the new route as it does for the rest of the dashboard.
+
 ## v0.1.0
 
 FEATURE: an optional `address` on http checks — a host:port dial-target override that redirects the probe's dial to an explicit endpoint while the URL's host keeps identifying the listener through the request's `Host` header and the TLS server name. That is the shape for validating an external listener from inside a network where the name resolves locally: the URL carries the name, `address` carries the public endpoint.

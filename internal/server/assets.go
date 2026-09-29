@@ -5,17 +5,28 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"regexp"
 	"strings"
 )
 
 const indexFile = "index.html"
 
+// checkRoute is the dashboard's one client-side route: a check's detail page
+// at /check/<id>. the id carries the shape configuration accepts for a check
+// id and nothing looser, so the index answers only for a path that could name
+// a check. whether it names a configured one is the page's to say, from the
+// status document; this handler knows the shape and never the registry. the
+// shape is stated three times and the three move together: checkIDPattern in
+// internal/config, which is its origin, this route, and the page's own matcher
+// in ui/src/route.ts.
+var checkRoute = regexp.MustCompile(`^check/[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
 // assets serves the embedded dashboard build and nothing else.
 //
-// there is deliberately no single-page fallback: the dashboard has no router,
-// so every path that does not name an embedded file is a genuine 404. that is
-// what keeps the status surface free of the report endpoints living on the
-// separate ingest listener.
+// there is deliberately no general single-page fallback: the index answers for
+// the root and for the one route the page owns, and every other path that does
+// not name an embedded file is a genuine 404. that is what keeps the status
+// surface free of the report endpoints living on the separate ingest listener.
 type assets struct {
 	files  fs.FS
 	server http.Handler
@@ -46,7 +57,7 @@ func (handler *assets) embedded() bool {
 // cross-surface isolation guarantee is about the path and not the verb.
 func (handler *assets) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	name := assetName(request.URL.Path)
-	if name == "" || name == indexFile {
+	if name == "" || name == indexFile || checkRoute.MatchString(name) {
 		if !handler.embedded() {
 			http.NotFound(writer, request)
 			return

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchHistory, fetchStatus, type StatusDocument } from './api/client'
+import { CheckPage } from './components/CheckPage'
 import { CheckTable } from './components/CheckTable'
 import { RollupBanner } from './components/RollupBanner'
+import { RouteLink } from './components/RouteLink'
 import {
   defaultPreset,
   detailLands,
@@ -17,6 +19,7 @@ import {
   type HistoryState,
   type Preset,
 } from './history'
+import { estateHref, matchRoute, openCheckOf, type Route } from './route'
 import { formatDuration, formatTimestamp } from './util'
 
 const pollInterval = 10_000
@@ -50,10 +53,14 @@ export default function App() {
   const [receivedAt, setReceivedAt] = useState<number | null>(null)
   // a heartbeat so every age on the page counts live between polls.
   const [now, setNow] = useState(() => Date.now())
-  // which check's panel is open, and over which window. both are mirrored into
+  // where the page is, read from the address bar. a check's detail is open
+  // exactly while the route names that check, so the route is the only place
+  // that fact lives.
+  const [route, setRoute] = useState<Route>(() => matchRoute(window.location.pathname))
+  const openCheck = openCheckOf(route)
+  // which check's detail is open, and over which window. both are mirrored into
   // refs because the poll loop is created once and cannot see later state.
-  const [openCheck, setOpenCheck] = useState<string | null>(null)
-  const openRef = useRef<string | null>(null)
+  const openRef = useRef<string | null>(openCheck)
   const [preset, setPreset] = useState<Preset>(defaultPreset)
   const presetRef = useRef<Preset>(defaultPreset)
   const abortRef = useRef<AbortController | null>(null)
@@ -222,8 +229,23 @@ export default function App() {
     }
   }, [commitDetail, commitHistory, refreshDetail])
 
-  // opening a panel whose flag went dirty during closure kicks the fetch at
-  // once, exactly as a preset change does.
+  // the page follows the address bar: the back and forward buttons raise
+  // popstate, and navigate() raises it the same way for the page's own links,
+  // so every route change arrives here and nowhere else. the ref moves first,
+  // and synchronously, for the reason the preset's does below — one rule for
+  // what the poll loop reads, rather than a case per way of getting here.
+  useEffect(() => {
+    const follow = () => {
+      const next = matchRoute(window.location.pathname)
+      openRef.current = openCheckOf(next)
+      setRoute(next)
+    }
+    window.addEventListener('popstate', follow)
+    return () => window.removeEventListener('popstate', follow)
+  }, [])
+
+  // opening a detail whose flag went dirty while it was closed kicks the fetch
+  // at once, exactly as a preset change does.
   useEffect(() => {
     openRef.current = openCheck
     presetRef.current = preset
@@ -235,10 +257,15 @@ export default function App() {
   // derives, so no two surfaces can cap differently.
   const staleCap = vouchingCap(status, stale)
   const estate = status?.estate ?? 'scry'
+  const opened =
+    openCheck === null ? undefined : status?.checks.find((check) => check.id === openCheck)
+  // a check's page names the check first, so tabs held on several checks can
+  // be told apart; everywhere else the tab names the estate.
+  const title = opened ? `${opened.name} · ${estate}` : estate
 
   useEffect(() => {
-    document.title = estate
-  }, [estate])
+    document.title = title
+  }, [title])
 
   const strip = status
     ? displayWindow({
@@ -273,19 +300,14 @@ export default function App() {
     setPreset(next)
   }
 
-  const toggleCheck = (id: string) => {
-    const next = openCheck === id ? null : id
-    // open state gates only the dispatch, never a landing, so a stale ref here
-    // is harmless — but both refs moving with the click is one rule instead of
-    // two cases to reason about.
-    openRef.current = next
-    setOpenCheck(next)
-  }
-
   return (
     <main>
       <header>
-        <h1>{estate}</h1>
+        <h1>
+          <RouteLink to={estateHref} className="estate-link">
+            {estate}
+          </RouteLink>
+        </h1>
         {status ? (
           <span className="generated">
             as of {formatTimestamp(status.generated)} · {formatDuration(ageOffset)} ago
@@ -299,7 +321,22 @@ export default function App() {
         </p>
       ) : null}
 
-      {status ? (
+      {status === null ? (
+        <p className="placeholder">{loaded ? 'no status available' : 'loading'}</p>
+      ) : route.page === 'check' ? (
+        <CheckPage
+          id={route.id}
+          check={opened}
+          generated={status.generated}
+          ageOffset={ageOffset}
+          source={source}
+          preset={preset}
+          onPreset={choosePreset}
+          now={now}
+        />
+      ) : route.page === 'missing' ? (
+        <p className="placeholder">no page at '{route.path}'</p>
+      ) : (
         <>
           <RollupBanner rollup={status.rollup} />
           <CheckTable
@@ -308,16 +345,8 @@ export default function App() {
             ageOffset={ageOffset}
             history={history.document}
             window={strip}
-            openCheck={openCheck}
-            onToggle={toggleCheck}
-            source={source}
-            preset={preset}
-            onPreset={choosePreset}
-            now={now}
           />
         </>
-      ) : (
-        <p className="placeholder">{loaded ? 'no status available' : 'loading'}</p>
       )}
 
       <footer className="app-footer">

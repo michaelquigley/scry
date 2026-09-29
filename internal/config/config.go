@@ -22,6 +22,8 @@ const (
 	DefaultIngestListen = "127.0.0.1:8421"
 )
 
+// the dashboard's check route restates this shape on both of its sides, in
+// internal/server/assets.go and ui/src/route.ts; a change here moves all three.
 var checkIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // Config is scry's complete daemon configuration.

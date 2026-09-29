@@ -211,7 +211,7 @@ func TestReportMethodAndSurfaceIsolation(t *testing.T) {
 	if method.Code != http.StatusMethodNotAllowed || method.Header().Get("Allow") != "GET, POST" {
 		t.Fatalf("method response: status=%d allow=%q", method.Code, method.Header().Get("Allow"))
 	}
-	for _, path := range []string{"/", "/index.html", "/api/status", "/report", "/report/", "/report/job/child"} {
+	for _, path := range []string{"/", "/index.html", "/check/job", "/api/status", "/report", "/report/", "/report/job/child"} {
 		response := serveReport(t, handler, http.MethodGet, path, "", "Bearer secret")
 		if response.Code != http.StatusNotFound {
 			t.Fatalf("%s: status %d", path, response.Code)

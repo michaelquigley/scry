@@ -46,8 +46,36 @@ func TestBuiltAssetsAreServed(t *testing.T) {
 	}
 }
 
-// there is no single-page fallback: the dashboard has no router, so an unknown
-// path is a 404 whether or not it looks like a file. this is what keeps the
+// the page owns one client-side route, a check's detail at /check/<id>, and
+// the index answers for it so a deep link or a reload lands on the page. the
+// handler judges the id's shape alone: an unconfigured id of the right shape is
+// served, and the page says the check does not exist.
+func TestCheckRouteServesTheDashboardIndex(t *testing.T) {
+	for _, path := range []string{
+		"/check/nas-snapshot",
+		"/check/nas-snapshot/",
+		"/check/a",
+		"/check/db2-replica-01",
+	} {
+		response := serveDashboard(t, dashboardFS(), http.MethodGet, path)
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="root"`) {
+			t.Fatalf("%s: %d %q", path, response.Code, response.Body.String())
+		}
+		if contentType := response.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
+			t.Fatalf("%s content type: %q", path, contentType)
+		}
+	}
+
+	response := serveDashboard(t, dashboardFS(), http.MethodPost, "/check/nas-snapshot")
+	if response.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("post: %d", response.Code)
+	}
+}
+
+// there is no general single-page fallback: the index answers for the root and
+// the check route, and any other path is a 404 whether or not it looks like a
+// file. that includes every near miss of the check route, so the fallback stays
+// exactly as wide as the one shape it was opened for. this is what keeps the
 // status surface from answering for paths that belong to another listener.
 func TestUnknownPathsAre404WithoutASinglePageFallback(t *testing.T) {
 	for _, path := range []string{
@@ -55,6 +83,15 @@ func TestUnknownPathsAre404WithoutASinglePageFallback(t *testing.T) {
 		"/checks/nas-snapshot",
 		"/report/nas-snapshot",
 		"/dashboard",
+		"/check",
+		"/check/",
+		"/check/nas-snapshot/history",
+		"/check/NAS-snapshot",
+		"/check/nas_snapshot",
+		"/check/nas--snapshot",
+		"/check/-nas",
+		"/check/nas-",
+		"/check/nas.js",
 	} {
 		response := serveDashboard(t, dashboardFS(), http.MethodGet, path)
 		if response.Code != http.StatusNotFound {
@@ -95,6 +132,10 @@ func TestHeadlessBuildServesNoDashboard(t *testing.T) {
 	response := serveDashboard(t, fstest.MapFS{}, http.MethodGet, "/")
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("headless root: %d", response.Code)
+	}
+	response = serveDashboard(t, fstest.MapFS{}, http.MethodGet, "/check/nas-snapshot")
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("headless check route: %d", response.Code)
 	}
 	if newAssets(fstest.MapFS{}).embedded() {
 		t.Fatal("an empty tree should not report an embedded dashboard")
