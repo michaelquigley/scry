@@ -22,6 +22,22 @@ export function formatDuration(elapsed: number): string {
   return `${Math.floor(elapsed / day)}d ${Math.floor((elapsed % day) / hour)}h`
 }
 
+// formatUptime renders the share of watched time a check spent ok. two
+// decimals, floored: over ninety days a hundredth of a percent is thirteen
+// minutes, and flooring means the figure never reads 100% while any non-ok
+// time was watched — an instrument does not round up. nothing watched is a
+// dash, not a number.
+export function formatUptime(uptime: { watched: number; ok: number }): string {
+  if (!(uptime.watched > 0)) {
+    return '—'
+  }
+  if (uptime.ok >= uptime.watched) {
+    return '100%'
+  }
+  const hundredths = Math.floor((uptime.ok / uptime.watched) * 10000)
+  return `${(hundredths / 100).toFixed(2)}%`
+}
+
 // formatTimestamp renders an API timestamp in the viewer's local zone. the year
 // is carried only when the caller asks for it, so the page's default form stays
 // the compact one every row strip and header already reads in.

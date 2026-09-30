@@ -4,11 +4,18 @@ import {
   checkTransitions,
   eventRows,
   presets,
+  uptimeOf,
   type DetailSource,
   type EventRow,
   type Preset,
 } from '../history'
-import { elapsedSince, formatDuration, formatTimestampWithAge, outsideCurrentYear } from '../util'
+import {
+  elapsedSince,
+  formatDuration,
+  formatTimestampWithAge,
+  formatUptime,
+  outsideCurrentYear,
+} from '../util'
 import { StateStrip } from './StateStrip'
 
 // DetailPanel is a dumb drawer of what the pure functions return: the strip
@@ -32,6 +39,10 @@ export function DetailPanel({
   now: number
 }) {
   const rows = eventRows(source.document, entry, source.window)
+  // the strip's intervals, drawn once and summed once, so the figure beside
+  // the presets is the strip above it counted over the same window.
+  const intervals = buildStrip(source.document, entry, source.window)
+  const uptime = uptimeOf(intervals)
   // the age every row counts from is this document's own: the daemon's span to
   // the coverage it served, plus how long the page has held it.
   const held = Math.max(0, now - source.arrival)
@@ -46,11 +57,7 @@ export function DetailPanel({
   return (
     <div className="detail-panel">
       <div className="detail-strip">
-        <StateStrip
-          intervals={buildStrip(source.document, entry, source.window)}
-          window={source.window}
-          label={`${label} ${preset}`}
-        />
+        <StateStrip intervals={intervals} window={source.window} label={`${label} ${preset}`} />
       </div>
 
       <div className="detail-presets" role="group" aria-label="window">
@@ -65,6 +72,18 @@ export function DetailPanel({
             {option}
           </button>
         ))}
+        {/* the share of watched time spent ok over the window the presets
+            choose. it names its denominator, because the strip beside it may
+            hold hatch that is in neither. */}
+        <span className="detail-uptime">
+          <span className="detail-uptime-figure">{formatUptime(uptime)}</span>
+          {uptime.watched > 0 ? (
+            <span className="detail-uptime-of">
+              {' '}
+              ok of {formatDuration(uptime.watched)} watched
+            </span>
+          ) : null}
+        </span>
       </div>
 
       <ol className="detail-events">

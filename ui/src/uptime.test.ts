@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fixture from '../../internal/api/specs/fixtures/history-uptime.json?raw'
 import type { HistoryDocument } from './api/client'
 import { buildStrip, uptimeOf, type Interval } from './history'
+import { formatUptime } from './util'
 
 // the fixture the daemon's suite reads too: one history document whose uptime
 // figures were worked by hand. the page's walk over the document's own window
@@ -44,5 +45,19 @@ describe('uptimeOf', () => {
 
   it('counts nothing over an empty strip', () => {
     expect(uptimeOf([])).toEqual({ watched: 0, ok: 0, late: 0, failed: 0 })
+  })
+})
+
+describe('formatUptime', () => {
+  it('floors to two decimals and never reads 100% while non-ok time was watched', () => {
+    expect(formatUptime({ watched: 1000, ok: 1000 })).toBe('100%')
+    expect(formatUptime({ watched: 1_000_000, ok: 999_999 })).toBe('99.99%')
+    expect(formatUptime({ watched: 100_000, ok: 99_995 })).toBe('99.99%')
+    expect(formatUptime({ watched: 3, ok: 2 })).toBe('66.66%')
+    expect(formatUptime({ watched: 1000, ok: 0 })).toBe('0.00%')
+  })
+
+  it('is a dash when nothing was watched', () => {
+    expect(formatUptime({ watched: 0, ok: 0 })).toBe('—')
   })
 })

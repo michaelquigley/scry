@@ -1,7 +1,7 @@
 import type { Check, CheckState, HistoryDocument } from '../api/client'
-import { buildStrip, defaultPreset, type DisplayWindow } from '../history'
+import { buildStrip, defaultPreset, uptimeOf, type DisplayWindow, type UptimeMs } from '../history'
 import { checkHref } from '../route'
-import { elapsedSince, formatDuration } from '../util'
+import { elapsedSince, formatDuration, formatUptime } from '../util'
 import { RouteLink } from './RouteLink'
 import { StateStrip } from './StateStrip'
 
@@ -18,6 +18,14 @@ function troubleFirst(checks: Check[]): Check[] {
     }
     return left.id.localeCompare(right.id)
   })
+}
+
+// the hover says what the percentage is of, which the column has no room for.
+function uptimeTitle(uptime: UptimeMs): string {
+  if (!(uptime.watched > 0)) {
+    return 'nothing watched in this window'
+  }
+  return `ok for ${formatDuration(uptime.ok)} of ${formatDuration(uptime.watched)} watched`
 }
 
 export function CheckTable({
@@ -54,6 +62,12 @@ export function CheckTable({
       <tbody>
         {troubleFirst(checks).map((check) => {
           const recorded = history?.checks.find((entry) => entry.id === check.id)
+          // the strip's intervals, drawn once and summed once: the figure
+          // beside the strip is the strip's own bands counted, so the two
+          // cannot disagree.
+          const intervals =
+            history && window && recorded ? buildStrip(history, recorded, window) : null
+          const uptime = intervals ? uptimeOf(intervals) : null
           return (
             <tr key={check.id}>
               <td>
@@ -70,17 +84,16 @@ export function CheckTable({
               <td className="history">
                 {/* the strip is the way in to the check's detail, and the name
                     beside it is the same link in words. */}
-                {history && window && recorded ? (
+                {intervals && uptime && window ? (
                   <RouteLink
                     to={checkHref(check.id)}
                     className="strip-link"
                     label={`${check.name} history detail`}
                   >
-                    <StateStrip
-                      intervals={buildStrip(history, recorded, window)}
-                      window={window}
-                      label={check.name}
-                    />
+                    <StateStrip intervals={intervals} window={window} label={check.name} />
+                    <span className="strip-uptime" title={uptimeTitle(uptime)}>
+                      {formatUptime(uptime)}
+                    </span>
                   </RouteLink>
                 ) : null}
               </td>
