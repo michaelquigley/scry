@@ -7,4 +7,5 @@ building:
 evaluating:
   - uptime-calculation.md
 researching:
+  - serialize-status-poll-ordering.md
   - fold-response-bodies-into-http-failure-detail.md

@@ -1,8 +1,9 @@
 ---
 title: serialize status poll ordering
-state: inbox
+state: researching
 created: 2026-08-19
 tags: [defect]
+milestone: v0.1.x
 ---
 
 Make the dashboard's held status document monotonic. `poll()` in `ui/src/App.tsx` runs on a bare 10-second interval that never awaits its predecessor, and every response is committed to `statusRef.current` unconditionally — so if a status request outlives the interval and an older response lands last, it overwrites a newer one. The display clock jumps backward, `receivedAt` resets against the older stamp, and the panel's landing rule starts judging arrivals against a "newest status" that is not the newest.
