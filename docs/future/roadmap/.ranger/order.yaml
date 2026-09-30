@@ -4,7 +4,7 @@ horizon:
   - zrok-native-ingest-listener.md
   - embedding-sdk.md
 building:
-  - uptime-calculation.md
 evaluating:
+  - uptime-calculation.md
 researching:
   - fold-response-bodies-into-http-failure-detail.md

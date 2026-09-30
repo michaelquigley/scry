@@ -1,6 +1,6 @@
 ---
 title: uptime calculation?
-state: building
+state: evaluating
 created: 2026-09-29
 tags: [enhancement]
 milestone: v0.1.x
