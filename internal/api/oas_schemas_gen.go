@@ -121,6 +121,8 @@ type CheckHistory struct {
 	Since NilDateTime `json:"since"`
 	// Every transition inside the window, ascending.
 	Events []TransitionEvent `json:"events"`
+	// How the check's watched time across the window divides among the states.
+	Uptime Uptime `json:"uptime"`
 }
 
 // GetID returns the value of ID.
@@ -153,6 +155,11 @@ func (s *CheckHistory) GetEvents() []TransitionEvent {
 	return s.Events
 }
 
+// GetUptime returns the value of Uptime.
+func (s *CheckHistory) GetUptime() Uptime {
+	return s.Uptime
+}
+
 // SetID sets the value of ID.
 func (s *CheckHistory) SetID(val string) {
 	s.ID = val
@@ -181,6 +188,11 @@ func (s *CheckHistory) SetSince(val NilDateTime) {
 // SetEvents sets the value of Events.
 func (s *CheckHistory) SetEvents(val []TransitionEvent) {
 	s.Events = val
+}
+
+// SetUptime sets the value of Uptime.
+func (s *CheckHistory) SetUptime(val Uptime) {
+	s.Uptime = val
 }
 
 // A request the daemon refused or could not serve.
@@ -826,4 +838,61 @@ func (s *TransitionEvent) SetPrevSince(val time.Time) {
 // SetDetail sets the value of Detail.
 func (s *TransitionEvent) SetDetail(val NilString) {
 	s.Detail = val
+}
+
+// The check's time in each state across the window, counted only where the daemon was watching and the
+// check existed. durations rather than a ratio, because durations add: a consumer forms the ratio it
+// wants, and a page holding the document can extend the tail. they are computed over the same
+// whole-second instants the document's timestamps carry, so a consumer recomputing them from the
+// document arrives at the same figures.
+// Ref: #/components/schemas/uptime
+type Uptime struct {
+	// Seconds the daemon was watching and the check existed; the sum of the three state durations.
+	Watched int64 `json:"watched"`
+	// Seconds in ok.
+	Ok int64 `json:"ok"`
+	// Seconds in late.
+	Late int64 `json:"late"`
+	// Seconds in failed.
+	Failed int64 `json:"failed"`
+}
+
+// GetWatched returns the value of Watched.
+func (s *Uptime) GetWatched() int64 {
+	return s.Watched
+}
+
+// GetOk returns the value of Ok.
+func (s *Uptime) GetOk() int64 {
+	return s.Ok
+}
+
+// GetLate returns the value of Late.
+func (s *Uptime) GetLate() int64 {
+	return s.Late
+}
+
+// GetFailed returns the value of Failed.
+func (s *Uptime) GetFailed() int64 {
+	return s.Failed
+}
+
+// SetWatched sets the value of Watched.
+func (s *Uptime) SetWatched(val int64) {
+	s.Watched = val
+}
+
+// SetOk sets the value of Ok.
+func (s *Uptime) SetOk(val int64) {
+	s.Ok = val
+}
+
+// SetLate sets the value of Late.
+func (s *Uptime) SetLate(val int64) {
+	s.Late = val
+}
+
+// SetFailed sets the value of Failed.
+func (s *Uptime) SetFailed(val int64) {
+	s.Failed = val
 }

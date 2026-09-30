@@ -5,6 +5,7 @@ import type {
   LifecycleEvent,
   StatusDocument,
   TransitionEvent,
+  Uptime,
 } from './api/client'
 
 // the render window, matching the daemon's own default. the strip slides with
@@ -239,6 +240,31 @@ function clip(interval: Interval, window: DisplayWindow): Interval | null {
   }
   return { ...interval, start, end }
 }
+
+// uptimeOf counts a check's time in each state across a strip's intervals, in
+// milliseconds: the same walk the daemon makes for the document's own uptime,
+// made here over the page's window rather than the document's, because the
+// display slides while a held document does not — during an outage nothing
+// transitions and nothing refetches, so a served figure would sit at its onset
+// value while the strip's red grew. summing the intervals the strip draws is
+// what keeps the figure and the strip one claim. blank and unwatched time are
+// in none of the buckets, so watched is the sum of the three states, and a
+// shared fixture pins this walk to the daemon's over the document's own window.
+export function uptimeOf(intervals: Interval[]): UptimeMs {
+  const uptime: UptimeMs = { watched: 0, ok: 0, late: 0, failed: 0 }
+  for (const interval of intervals) {
+    if (interval.kind !== 'state' || interval.state === undefined) {
+      continue
+    }
+    const span = interval.end - interval.start
+    uptime.watched += span
+    uptime[interval.state] += span
+  }
+  return uptime
+}
+
+// the daemon's uptime shape in the page's unit.
+export type UptimeMs = { [field in keyof Uptime]: number }
 
 // placeIntervals maps intervals onto the strip. every endpoint is exactly
 // proportional — nothing is widened to be visible — and an interval a reader

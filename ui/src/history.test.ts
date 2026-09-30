@@ -38,6 +38,9 @@ function entry(overrides: Partial<CheckHistory> = {}): CheckHistory {
     state_at_to: null,
     since: null,
     events: [],
+    // the daemon's count over the document's window. these suites exercise
+    // the page's own walk, which never reads it.
+    uptime: { watched: 0, ok: 0, late: 0, failed: 0 },
     ...overrides,
   }
 }

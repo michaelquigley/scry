@@ -52,7 +52,8 @@ Evolution is additive only. Consumers must ignore unknown fields, which is how l
       "events": [
         {"ts": "2026-08-10T02:10:11Z", "kind": "http", "from": "ok", "to": "failed", "prev_since": "2026-08-02T07:30:00Z", "detail": "connection refused"},
         {"ts": "2026-08-10T02:40:12Z", "kind": "http", "from": "failed", "to": "ok", "prev_since": "2026-08-10T02:10:11Z", "detail": "200 in 84ms"}
-      ]
+      ],
+      "uptime": {"watched": 7760418, "ok": 7758617, "late": 0, "failed": 1801}
     }
   ],
   "daemon": [
@@ -67,6 +68,8 @@ Evolution is additive only. Consumers must ignore unknown fields, which is how l
 The tail is a pair. `state_at_to` and `since` are the state at `to` and the instant that state began, resolved together by the same rules, and they are null together when the check did not yet exist. The tail band is exactly `state_at_to` from `since` forward, so the whole strip renders from this one document.
 
 `daemon` carries the window's lifecycle events, which belong to the estate rather than to any check, and `watching_at_from` says whether the daemon was watching as the window opened — the one fact a renderer cannot infer when the telling `stop` fell before `from`. Every transition event carries the `kind` the check had when it fired; the entry's top-level `kind` is the registry's convenience value, so a window spanning a kind change stays honestly attributed by its events.
+
+`uptime` is the daemon's count of the check's time in each state across the window, in whole seconds, counted only where the daemon was watching and the check existed: `watched` is the sum of `ok`, `late`, and `failed`, and time in an unwatched gap or before the check's existence is in none of them. It is served as durations rather than a ratio because durations add — a consumer forms whatever ratio it wants, and a page holding the document can extend the tail the way its strip does. The count is one more walk over the fields above — the bounds, the events, the tail pair, the lifecycle — so a consumer recomputing it from the document arrives at the same figures; the walk runs over the whole-second instants the wire carries, never the daemon's sub-second ones, for exactly that reason. The dashboard makes the same walk for its own display, and a shared fixture under `internal/api/specs/fixtures/` pins the two to each other: both suites read it and must reach the figures it carries.
 
 The document speaks only for the configured registry: ledger events under names no longer configured are ignored, warned about once at boot, and served to nobody. It is assembled as one consistent cut — the window scan is serialized with the engine's own apply loop, so no document can miss an event at or before its served `to`. That, not the response's stamp, is the guarantee consumers may lean on.
 

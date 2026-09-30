@@ -133,6 +133,31 @@ export interface components {
             since: string | null;
             /** @description every transition inside the window, ascending */
             events: components["schemas"]["transition_event"][];
+            /** @description how the check's watched time across the window divides among the states */
+            uptime: components["schemas"]["uptime"];
+        };
+        /** @description the check's time in each state across the window, counted only where the daemon was watching and the check existed. durations rather than a ratio, because durations add: a consumer forms the ratio it wants, and a page holding the document can extend the tail. they are computed over the same whole-second instants the document's timestamps carry, so a consumer recomputing them from the document arrives at the same figures. */
+        uptime: {
+            /**
+             * Format: int64
+             * @description seconds the daemon was watching and the check existed; the sum of the three state durations
+             */
+            watched: number;
+            /**
+             * Format: int64
+             * @description seconds in ok
+             */
+            ok: number;
+            /**
+             * Format: int64
+             * @description seconds in late
+             */
+            late: number;
+            /**
+             * Format: int64
+             * @description seconds in failed
+             */
+            failed: number;
         };
         /** @description one recorded state change */
         transition_event: {

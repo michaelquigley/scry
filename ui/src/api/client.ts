@@ -9,6 +9,7 @@ export type HistoryDocument = components['schemas']['history']
 export type CheckHistory = components['schemas']['check_history']
 export type TransitionEvent = components['schemas']['transition_event']
 export type LifecycleEvent = components['schemas']['lifecycle_event']
+export type Uptime = components['schemas']['uptime']
 
 const statusPath = '/api/status'
 const historyPath = '/api/history'

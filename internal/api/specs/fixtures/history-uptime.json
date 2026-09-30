@@ -1,0 +1,66 @@
+{
+  "estate": "fixture estate",
+  "generated": "2026-09-11T00:00:00Z",
+  "from": "2026-09-01T00:00:00Z",
+  "to": "2026-09-11T00:00:00Z",
+  "watching_at_from": true,
+  "checks": [
+    {
+      "id": "web",
+      "kind": "http",
+      "state_at_from": "ok",
+      "state_at_to": "ok",
+      "since": "2026-09-03T08:00:00Z",
+      "events": [
+        {"ts": "2026-09-02T12:00:00Z", "kind": "http", "from": "ok", "to": "late", "prev_since": "2026-08-20T00:00:00Z", "detail": "one timeout"},
+        {"ts": "2026-09-02T12:05:00Z", "kind": "http", "from": "late", "to": "failed", "prev_since": "2026-09-02T12:00:00Z", "detail": "unexpected status 503"},
+        {"ts": "2026-09-03T08:00:00Z", "kind": "http", "from": "failed", "to": "ok", "prev_since": "2026-09-02T12:05:00Z", "detail": null}
+      ],
+      "uptime": {"watched": 842400, "ok": 792000, "late": 300, "failed": 50100}
+    },
+    {
+      "id": "born",
+      "kind": "tcp",
+      "state_at_from": null,
+      "state_at_to": "failed",
+      "since": "2026-09-06T00:00:00Z",
+      "events": [
+        {"ts": "2026-09-06T00:00:00Z", "kind": "tcp", "from": "ok", "to": "failed", "prev_since": "2026-09-05T00:00:00Z", "detail": "connection refused"}
+      ],
+      "uptime": {"watched": 518400, "ok": 86400, "late": 0, "failed": 432000}
+    },
+    {
+      "id": "quiet",
+      "kind": "passive",
+      "state_at_from": "ok",
+      "state_at_to": "ok",
+      "since": "2026-08-01T00:00:00Z",
+      "events": [],
+      "uptime": {"watched": 842400, "ok": 842400, "late": 0, "failed": 0}
+    },
+    {
+      "id": "late-only",
+      "kind": "passive",
+      "state_at_from": "late",
+      "state_at_to": "ok",
+      "since": "2026-09-10T00:00:00Z",
+      "events": [
+        {"ts": "2026-09-10T00:00:00Z", "kind": "passive", "from": "late", "to": "ok", "prev_since": "2026-08-30T00:00:00Z", "detail": null}
+      ],
+      "uptime": {"watched": 842400, "ok": 86400, "late": 756000, "failed": 0}
+    },
+    {
+      "id": "absent",
+      "kind": "tcp",
+      "state_at_from": null,
+      "state_at_to": null,
+      "since": null,
+      "events": [],
+      "uptime": {"watched": 0, "ok": 0, "late": 0, "failed": 0}
+    }
+  ],
+  "daemon": [
+    {"ts": "2026-09-03T00:00:00Z", "event": "stop"},
+    {"ts": "2026-09-03T06:00:00Z", "event": "start"}
+  ]
+}

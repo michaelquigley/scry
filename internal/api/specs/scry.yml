@@ -185,7 +185,7 @@ components:
 
     check_history:
       type: object
-      required: [id, kind, state_at_from, state_at_to, since, events]
+      required: [id, kind, state_at_from, state_at_to, since, events, uptime]
       properties:
         id:
           type: string
@@ -222,6 +222,40 @@ components:
           description: every transition inside the window, ascending
           items:
             $ref: "#/components/schemas/transition_event"
+        uptime:
+          allOf:
+            - $ref: "#/components/schemas/uptime"
+          description: how the check's watched time across the window divides among the states
+
+    uptime:
+      type: object
+      description: >-
+        the check's time in each state across the window, counted only where
+        the daemon was watching and the check existed. durations rather than a
+        ratio, because durations add: a consumer forms the ratio it wants, and
+        a page holding the document can extend the tail. they are computed over
+        the same whole-second instants the document's timestamps carry, so a
+        consumer recomputing them from the document arrives at the same figures.
+      required: [watched, ok, late, failed]
+      properties:
+        watched:
+          type: integer
+          format: int64
+          description: >-
+            seconds the daemon was watching and the check existed; the sum of
+            the three state durations
+        ok:
+          type: integer
+          format: int64
+          description: seconds in ok
+        late:
+          type: integer
+          format: int64
+          description: seconds in late
+        failed:
+          type: integer
+          format: int64
+          description: seconds in failed
 
     transition_event:
       type: object

@@ -4,10 +4,7 @@ horizon:
   - zrok-native-ingest-listener.md
   - embedding-sdk.md
 building:
+  - uptime-calculation.md
 evaluating:
-  - virtual-host-with-ip-http-checks.md
-  - per-check-history-detail-view.md
-  - state-history.md
 researching:
   - fold-response-bodies-into-http-failure-detail.md
-  - uptime-calculation.md

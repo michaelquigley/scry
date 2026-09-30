@@ -86,6 +86,11 @@ func describeHistory(estate string, view engine.HistoryView) *api.History {
 	for i, entry := range view.Checks {
 		document.Checks[i] = describeCheckHistory(entry, view, transitions[entry.Check.ID])
 	}
+	// the count reads the described document rather than the view, so it is
+	// the same walk a consumer of the document can make.
+	for i := range document.Checks {
+		document.Checks[i].Uptime = describeUptime(document, document.Checks[i])
+	}
 	return document
 }
 
