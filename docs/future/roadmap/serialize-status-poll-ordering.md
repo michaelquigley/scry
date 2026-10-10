@@ -1,6 +1,6 @@
 ---
 title: serialize status poll ordering
-state: researching
+state: horizon
 created: 2026-08-19
 tags: [defect]
 milestone: v0.1.x

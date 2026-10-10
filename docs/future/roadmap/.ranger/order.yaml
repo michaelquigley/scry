@@ -1,11 +1,13 @@
 horizon:
+  - serialize-status-poll-ordering.md
   - agent-strategy-and-reference-agent.md
   - mcp-status-reader.md
   - zrok-native-ingest-listener.md
   - embedding-sdk.md
+  - incident-centered-history-windows.md
 building:
 evaluating:
   - uptime-calculation.md
 researching:
-  - serialize-status-poll-ordering.md
+  - dns-serial-canary.md
   - fold-response-bodies-into-http-failure-detail.md

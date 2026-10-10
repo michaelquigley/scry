@@ -1,6 +1,6 @@
 ---
 title: incident centered history windows
-state: inbox
+state: horizon
 created: 2026-08-19
 tags: [enhancement, spike]
 milestone: v0.1.x
